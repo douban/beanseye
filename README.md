@@ -1,4 +1,4 @@
-# What is Beanseye ?
+# What is beanseye ?
 
 Beanseye is proxy and monitor for beansdb, written in Go.
 
