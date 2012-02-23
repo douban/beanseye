@@ -112,7 +112,7 @@ func number(v interface{}) string {
 }
 
 var tmpls *template.Template
-var SECTIONS = [][]string{{"IN", "Info"}, {"SS", "Server"}, {"ST", "Status"}}
+var SECTIONS = [][]string{{"IN", "Info"}, {"SS", "Server"}}//, {"ST", "Status"}}
 
 var server_stats []map[string]interface{}
 var proxy_stats []map[string]interface{}
