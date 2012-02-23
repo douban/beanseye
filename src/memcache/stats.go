@@ -80,14 +80,14 @@ func (s *Stats) Stats() map[string]int64 {
 	st["time"] = int64(t.Second())
 	st["uptime"] = int64(t.Sub(s.start).Seconds())
 	st["pid"] = int64(os.Getpid())
-	st["threads"] = int64(runtime.Goroutines())
+	st["threads"] = int64(runtime.NumGoroutine())
 	rusage := syscall.Rusage{}
 	syscall.Getrusage(0, &rusage)
 	st["rusage_user"] = int64(rusage.Utime.Sec)
 	st["rusage_system"] = int64(rusage.Stime.Sec)
 
-    var memstat runtime.MemStats
-    runtime.ReadMemStats(&memstat)
+	var memstat runtime.MemStats
+	runtime.ReadMemStats(&memstat)
 	st["rusage_maxrss"] = int64(memstat.HeapSys/1024) + cmem.Alloced()/1024
 	return st
 }
