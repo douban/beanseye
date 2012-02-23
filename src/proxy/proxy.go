@@ -12,6 +12,7 @@ import (
     "log"
     "runtime"
     "strings"
+    "net"
     "net/http"
     "text/template"
     _ "net/http/pprof"
@@ -160,15 +161,22 @@ func update_stats(servers []string, server_stats []map[string]interface{}, isNod
                     }
                 }
             }
-            if _, ok := st["slow_cmd"]; !ok {
-                st["slow_cmd"] = uint64(0)
+            stv := func(name string) uint64 {
+                v, ok := st[name]
+                if !ok {
+                    return 0
+                }
+                r, ok := v.(uint64)
+                if ok { 
+                    return r
+                }
+                return 0
             }
-
-            st["hit"] = st["get_hits"].(uint64) * 100 / (st["cmd_get"].(uint64) + 1)
-            st["getset"] = float32(st["cmd_get"].(uint64)) / float32(st["cmd_set"].(uint64)+100.0)
-            st["slow"] = st["slow_cmd"].(uint64) * 100 / (st["cmd_get"].(uint64) + st["cmd_set"].(uint64) + st["cmd_delete"].(uint64) + 1)
+            st["hit"] = stv("get_hits") * 100 / (stv("cmd_get") + 1)
+            st["getset"] = float32(stv("cmd_get")) / float32(stv("cmd_set")+100.0)
+            st["slow"] = stv("slow_cmd") * 100 / (stv("cmd_get") + stv("cmd_set") + stv("cmd_delete") + 1)
             if maxrss, ok := st["rusage_maxrss"]; ok {
-                st["mpr"] = maxrss.(uint64) / (st["total_items"].(uint64) + st["curr_items"].(uint64) + 1000)
+                st["mpr"] = maxrss.(uint64) / (stv("total_items") + stv("curr_items") + 1000)
             }
             old := server_stats[i]
             keys := []string{"uptime", "cmd_get", "cmd_set", "cmd_delete", "slow_cmd", "get_hits", "get_misses", "bytes_read", "bytes_written"}
@@ -405,8 +413,12 @@ func main() {
                 listen = "0.0.0.0"
             }
             addr := fmt.Sprintf("%s:%d", listen, port)
+            lt, e := net.Listen("tcp", addr)
+            if e != nil {
+                log.Println("monitor listen failed on ", addr, e)
+            }
             log.Println("monitor listen on ", addr)
-            http.ListenAndServe(addr, nil)
+            http.Serve(lt, nil)
         }()
     }
 
