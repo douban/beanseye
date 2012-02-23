@@ -1,0 +1,19 @@
+<table class="HDR" cellpadding="0" cellspacing="0" border="0"> 
+<tr> 
+<td class="LOGO">
+</td> 
+<td class="MENU"><table class="MENU" cellspacing="0"> 
+<tr> 
+{{range $i, $s := .all_sections}}
+{{if index $s 1 |in $.sections}}
+<td class="{{index $s 0}}"><a href="?sections={{index $s 1}}">{{index $s 2}}</a></td> 
+{{else}}
+<td class="{{index $s 0}}"><a href="?sections={{index $s 1}}">{{index $s 2}}</a> <a href="?sections={{$.sections}}|{{index . 1}}">+</a></td> 
+{{end}}
+{{end}}
+</tr> 
+</table></td> 
+<td class="FILLER" style="white-space:nowrap;"> 
+</td> 
+</tr> 
+</table> 

@@ -1,0 +1,21 @@
+<table class="FR" cellspacing="0"> 
+<tr><th colspan="13">Info</th></tr> 
+<tr> 
+    <th>version</th> 
+    <th>servers</th> 
+    <th>proxies</th> 
+    <th>buckets</th> 
+    <th>total records</th> 
+    <th>uniq records</th> 
+    <th>chunks</th> 
+</tr> 
+<tr> 
+    <td align="center"></td> 
+    <td align="right">{{len .server_stats}}</td> 
+    <td align="right">{{len .proxy_stats}}</td> 
+    <td align="right">16</td> 
+    <td align="right">{{.total_records|num}}</td> 
+    <td align="right">{{.uniq_records|num}}</td> 
+    <td align="right"></td> 
+</tr> 
+</table> 

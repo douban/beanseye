@@ -1,0 +1,26 @@
+<style>
+.warning {color: #BFBF00}
+.dangerous {color: #FF0000}
+.invalid {color: #FFFFFF}
+</style>
+<table class="FR" cellspacing="0"> 
+    <tr> 
+        <th rowspan="2" colspan="2" class="PERC4">server</th> 
+        <th colspan="16" class="PERC96">buckets</th> 
+    </tr> 
+    <tr> 
+        {{range $i,$n := .bucket_stats}}
+        <th class="{{$n}}">{{$i}}</th> 
+        {{end}}
+    </tr>
+    {{range $i, $st := .stats}}
+    <tr>
+        <td class="">{{$i}}</td>
+        <td class="">{{.name}}</td>
+        {{range .stat}}
+           <td align="center" class="PERC96">{{if .}}{{.| size}}{{end}}</td>
+        {{end}}
+    </tr> 
+    {{end}}
+</table> 
+<br/> 

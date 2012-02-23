@@ -1,0 +1,46 @@
+<table class="FR" cellspacing="0"> 
+<tr><th colspan="18">Active servers (stats)</th></tr> 
+    <tr> 
+        <th>#</th> 
+        <th>host</th> 
+        <th>version</th> 
+        <th>uptime</th> 
+        <th>mem</th> 
+        <th>thd</th> 
+        <th>conn</th> 
+        <th>mpr</th>
+        <th>records</th> 
+        <th>space</th>
+        <th>get</th> 
+        <th>set</th> 
+        <th>delete</th> 
+        <th>slow</th> 
+        <th>get/set</th> 
+        <th>hit</th> 
+        <th>read</th> 
+        <th>write</th> 
+    </tr> 
+{{range $i,$st := .}}
+<tr class="C1"> 
+    <td align="right">{{$i}}</td> 
+    <td align="right">{{.name}}</td> 
+    {{if .uptime }}
+    <td align="center">{{.version}}</td> 
+    <td align="right">{{.uptime|time}}</td> 
+    <td align="right">{{.rusage_maxrss|size}}</td> 
+    <td align="right">{{.threads}}</td> 
+    <td align="right">{{.curr_connections|num}}</td> 
+    <td align="right">{{if .version}}{{.mpr|size}}{{end}}</td>
+    <td align="right">{{if .version}}{{.total_items|num}} / {{.curr_items|num}}{{end}}</td> 
+    <td align="right">{{if .version}}{{.total_space|size}} / {{.avail_space|size}}{{end}}</td> 
+    <td align="right">{{.cmd_get |num}} / {{.curr_cmd_get|num}}</td> 
+    <td align="right">{{.cmd_set|num}} / {{.curr_cmd_set|num}}</td> 
+    <td align="right">{{.cmd_delete|num}} / {{.curr_cmd_delete|num}}</td> 
+    <td align="right">{{.slow}}% / {{.curr_slow}}% </td>
+    <td align="right">{{.getset|num}} / {{.curr_getset|num}}</td>
+    <td align="right">{{.hit}}% / {{.curr_hit}}%</td>
+    <td align="right">{{.bytes_written|size}} / {{.curr_bytes_written|size}} </td>
+    <td align="right">{{.bytes_read|size}} / {{.curr_bytes_read|size}}</td>
+    {{end}}
+</tr> 
+{{end}}

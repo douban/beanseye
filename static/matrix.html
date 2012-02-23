@@ -1,0 +1,30 @@
+<style>
+.warning {color: #BFBF00}
+.dangerous {color: #FF0000}
+.invalid {color: #FFFFFF}
+</style>
+<table class="FR" cellspacing="0"> 
+    <tr><th colspan="18">All records in buckets</th></tr> 
+    <tr> 
+        <th rowspan="2" class="PERC4">server</th> 
+        <th colspan="17" class="PERC96">buckets</th> 
+    </tr> 
+    <tr> 
+        {{range $i,$n := .bucket_stats}}
+        <th class="{{$n}}">{{$i}}</th> 
+        {{end}}
+        <th class="PERC6">all</th> 
+    </tr>
+    {{range .server_stats}}
+    <tr>
+        <td class="{{.status}}">{{.name}}</td>
+        {{if .buckets}}
+        {{range .buckets}}
+        <td align="center">{{if .}}{{.}}{{end}}</td> 
+        {{end}}
+        <td class="PERC8">{{sum .buckets | size}}</th> 
+        {{end}}
+    </tr> 
+    {{end}}
+</table> 
+<br/> 
