@@ -198,13 +198,13 @@ func update_stats(servers []string, server_stats []map[string]interface{}, isNod
                 }
                 st["curr_uptime"] = uint64(1)
             }
-            st["curr_hit"] = st["curr_get_hits"].(uint64) * 100 / (st["curr_cmd_get"].(uint64) + 1)
-            st["curr_getset"] = float32(st["curr_cmd_get"].(uint64)) / float32(st["curr_cmd_set"].(uint64)+1.0)
-            st["curr_slow"] = st["curr_slow_cmd"].(uint64) * 100 / (st["curr_cmd_get"].(uint64) + st["curr_cmd_set"].(uint64) + st["curr_cmd_delete"].(uint64) + 1)
+            st["curr_hit"] = stv("curr_get_hits") * 100 / (stv("curr_cmd_get") + 1)
+            st["curr_getset"] = float32(stv("curr_cmd_get")) / float32(stv("curr_cmd_set")+1.0)
+            st["curr_slow"] = stv("curr_slow_cmd") * 100 / (stv("curr_cmd_get") + stv("curr_cmd_set") + stv("curr_cmd_delete") + 1)
             keys = []string{"cmd_get", "cmd_set", "cmd_delete", "bytes_read", "bytes_written"}
-            dt := float32(st["curr_uptime"].(uint64))
+            dt := float32(stv("curr_uptime"))
             for _, k := range keys {
-                st["curr_"+k] = float32(st["curr_"+k].(uint64)) / dt
+                st["curr_"+k] = float32(stv("curr_"+k)) / dt
             }
 
             if isNode {
