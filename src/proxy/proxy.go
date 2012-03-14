@@ -19,7 +19,7 @@ import (
     "github.com/kless/goconfig/config"
 )
 
-var conf *string = flag.String("conf", "test.ini", "config path")
+var conf *string = flag.String("conf", "conf/example.ini", "config path")
 var debug *bool = flag.Bool("debug", false, "debug info")
 var allocLimit *int = flag.Int("alloc", 1024*4, "cmem alloc limit")
 
@@ -442,8 +442,18 @@ func main() {
     schd = NewAutoScheduler(servers, 16)
     client := NewClient(schd)
     n := len(servers)
-    client.N = min(n, 3)
-    client.W = min(n, 2)
+    N, e := c.Int("proxy", "N");
+    if e != nil {
+        client.N = N
+    } else {
+        client.N = min(n, 3)
+    }
+    W, e := c.Int("proxy", "W");
+    if e != nil {
+        client.W = W
+    } else { 
+        client.W = min(n-1, 2)
+    }
     proxy := NewServer(client)
     listen, e := c.String("proxy", "listen")
     if e != nil {
