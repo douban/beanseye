@@ -88,6 +88,6 @@ func (s *Stats) Stats() map[string]int64 {
 
 	var memstat runtime.MemStats
 	runtime.ReadMemStats(&memstat)
-	st["rusage_maxrss"] = int64(memstat.HeapSys/1024) + cmem.Alloced()/1024
+	st["rusage_maxrss"] = int64(memstat.Sys/1024) + cmem.Alloced()/1024
 	return st
 }

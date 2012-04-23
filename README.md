@@ -13,7 +13,7 @@ $ go install proxy
 
 prepare your configuration, according to conf/example.ini
 
-$ ./bin/proxy -conf=myconf.ini
+$ ./bin/proxy -conf=example.ini
 
 # Proxy
 

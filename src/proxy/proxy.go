@@ -443,13 +443,13 @@ func main() {
     client := NewClient(schd)
     n := len(servers)
     N, e := c.Int("proxy", "N");
-    if e != nil {
+    if e == nil {
         client.N = N
     } else {
         client.N = min(n, 3)
     }
     W, e := c.Int("proxy", "W");
-    if e != nil {
+    if e == nil {
         client.W = W
     } else { 
         client.W = min(n-1, 2)
