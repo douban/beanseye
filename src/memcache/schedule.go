@@ -3,29 +3,27 @@ package memcache
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-    "log"
 )
 
 // Scheduler: route request to nodes
 type Scheduler interface {
 	Feedback(host *Host, key string, adjust float64) // feedback for auto routing
-	GetHostsByKey(key string) []*Host  // route a key to hosts
-	DivideKeysByBucket(keys []string) [][]string  // route some keys to group of hosts
-	Stats() map[string][]float64  // internal status
+	GetHostsByKey(key string) []*Host                // route a key to hosts
+	DivideKeysByBucket(keys []string) [][]string     // route some keys to group of hosts
+	Stats() map[string][]float64                     // internal status
 }
-
 
 type emptyScheduler struct{}
 
 func (c emptyScheduler) Feedback(host *Host, key string, adjust float64) {}
 
 func (c emptyScheduler) Stats() map[string][]float64 { return nil }
-
 
 // route request by Mod of HASH
 type ModScheduler struct {
@@ -61,7 +59,6 @@ func (c *ModScheduler) DivideKeysByBucket(keys []string) [][]string {
 	return rs
 }
 
-
 // internal status
 func (c *ModScheduler) Stats() map[string][]float64 {
 	r := make(map[string][]float64)
@@ -85,7 +82,6 @@ func (l uint64Slice) Less(i, j int) bool {
 func (l uint64Slice) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
-
 
 // route requests by consistant hash
 type ConsistantHashScheduler struct {
@@ -148,7 +144,6 @@ func (c *ConsistantHashScheduler) DivideKeysByBucket(keys []string) [][]string {
 	}
 	return rs
 }
-
 
 // route request by configure by hand
 type ManualScheduler struct {
@@ -213,13 +208,11 @@ func (c *ManualScheduler) Stats() map[string][]float64 {
 	return r
 }
 
-
 type Feedback struct {
 	hostIndex   int
 	bucketIndex int
 	adjust      float64
 }
-
 
 // route requests by auto discoved infomation, used in beansdb
 type AutoScheduler struct {
@@ -227,7 +220,7 @@ type AutoScheduler struct {
 	hosts      []*Host
 	buckets    [][]int
 	stats      [][]float64
-    last_check time.Time
+	last_check time.Time
 	hashMethod HashMethod
 	feedChan   chan *Feedback
 }
@@ -414,11 +407,11 @@ func (c *AutoScheduler) listHost(host *Host, dir string) {
 }
 
 func (c *AutoScheduler) check() {
-    defer func() {
-        if e := recover(); e != nil {
-            log.Print("error while check()", e) 
-        }
-    }()
+	defer func() {
+		if e := recover(); e != nil {
+			log.Print("error while check()", e)
+		}
+	}()
 	bs := len(c.buckets)
 	bucketWidth := 0
 	for bs > 1 {
@@ -439,5 +432,5 @@ func (c *AutoScheduler) check() {
 		}
 	}
 
-    c.last_check = time.Now()
+	c.last_check = time.Now()
 }

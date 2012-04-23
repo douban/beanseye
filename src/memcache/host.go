@@ -51,10 +51,10 @@ func (host *Host) createConn() (net.Conn, error) {
 	}
 	conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond) // 300ms
 	if err != nil {
-		host.nextDial = now.Add(time.Second*10)
+		host.nextDial = now.Add(time.Second * 10)
 		return nil, err
 	}
-    // FIXME: should use SetDeadline() before read and write
+	// FIXME: should use SetDeadline() before read and write
 	// conn.SetTimeout(time.Second*3) // timeout 3s
 	return conn, nil
 }

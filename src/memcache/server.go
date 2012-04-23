@@ -7,15 +7,15 @@ import (
 	"log"
 	"net"
 	"os"
-    "syscall"
 	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
 var AccessLog *log.Logger = nil
-var SlowCmdTime = time.Millisecond*100 // 100ms
+var SlowCmdTime = time.Millisecond * 100 // 100ms
 
 type ServerConn struct {
 	RemoteAddr      string
@@ -123,13 +123,13 @@ func (s *Server) Serve() (e error) {
 	}
 
 	// trap signal
-    sch := make(chan os.Signal, 10)
-    signal.Notify(sch, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT,
-        syscall.SIGHUP, syscall.SIGSTOP, syscall.SIGQUIT)
+	sch := make(chan os.Signal, 10)
+	signal.Notify(sch, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT,
+		syscall.SIGHUP, syscall.SIGSTOP, syscall.SIGQUIT)
 	go func(ch <-chan os.Signal) {
 		sig := <-ch
 		log.Print("signal recieved " + sig.String())
-	    s.Shutdown()
+		s.Shutdown()
 	}(sch)
 
 	// log.Print("start serving at ", s.addr, "...\n")
