@@ -389,14 +389,13 @@ func main() {
 	servers := strings.Split(serverss, ",")
 	for i := 0; i < len(servers); i++ {
 		s := servers[i]
-		if strings.Contains(s, "-") {
-			n := len(s)
-			start, _ := strconv.Atoi(s[n-3 : n-2])
-			end, _ := strconv.Atoi(s[n-1:])
+		if p := strings.Index(s, "-"); p > 0 {
+			start, _ := strconv.Atoi(s[p-1 : p])
+			end, _ := strconv.Atoi(s[p+1:])
 			for j := start + 1; j <= end; j++ {
-				servers = append(servers, fmt.Sprintf("%s%d", s[:n-3], j))
+				servers = append(servers, fmt.Sprintf("%s%d", s[:p-1], j))
 			}
-			s = s[:n-2]
+			s = s[:p]
 			servers[i] = s
 		}
 		if !strings.Contains(s, ":") {
@@ -446,8 +445,9 @@ func main() {
 		logf, err := os.OpenFile(accesslog, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			log.Print("open " + accesslog + " failed：" + err.Error())
+		} else {
+			AccessLog = log.New(logf, "", log.Ldate|log.Ltime)
 		}
-		AccessLog = log.New(logf, "", log.Ldate|log.Ltime)
 	}
 	slow, err := c.Int("proxy", "slow")
 	if err != nil {
