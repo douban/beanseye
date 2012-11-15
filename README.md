@@ -14,7 +14,7 @@ $ go install proxy
 
 prepare your configuration, according to conf/example.ini
 ``` bash
-$ ./bin/proxy -conf=example.ini
+$ ./bin/proxy -conf=conf/example.ini
 ```
 
 # Proxy
