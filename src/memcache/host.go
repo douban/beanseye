@@ -3,6 +3,7 @@ package memcache
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -11,6 +12,9 @@ import (
 )
 
 var MaxFreeConns = 20
+var ConnectTimeout time.Duration = time.Millisecond * 300
+var ReadTimeout time.Duration = time.Millisecond * 2000
+var WriteTimeout time.Duration = time.Millisecond * 2000
 
 type Host struct {
 	Addr     string
@@ -29,14 +33,16 @@ func NewHost(addr string) *Host {
 func hasPort(s string) bool { return strings.LastIndex(s, ":") > strings.LastIndex(s, "]") }
 
 func (host *Host) Close() {
-	// first := host.getConn()
-	// host.releaseConn(first)
-	// for conn := host.getConn() {
-	//     conn.Close()
-	//     if conn == first {
-	//         break // last conn
-	//     }
-	// }
+	if host.conns == nil {
+		return
+	}
+	ch := host.conns
+	host.conns = nil
+	close(ch)
+
+	for c, closed := <-ch; closed; {
+		c.Close()
+	}
 }
 
 func (host *Host) createConn() (net.Conn, error) {
@@ -49,17 +55,18 @@ func (host *Host) createConn() (net.Conn, error) {
 	if !hasPort(addr) {
 		addr = addr + ":11211"
 	}
-	conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond) // 300ms
+	conn, err := net.DialTimeout("tcp", addr, ConnectTimeout)
 	if err != nil {
 		host.nextDial = now.Add(time.Second * 10)
 		return nil, err
 	}
-	// FIXME: should use SetDeadline() before read and write
-	// conn.SetTimeout(time.Second*3) // timeout 3s
 	return conn, nil
 }
 
 func (host *Host) getConn() (c net.Conn, err error) {
+	if host.conns == nil {
+		return nil, errors.New("host closed")
+	}
 	select {
 	case c = <-host.conns:
 	default:
@@ -69,6 +76,10 @@ func (host *Host) getConn() (c net.Conn, err error) {
 }
 
 func (host *Host) releaseConn(conn net.Conn) {
+	if host.conns == nil {
+		conn.Close()
+		return
+	}
 	select {
 	case host.conns <- conn:
 	default:
@@ -115,9 +126,24 @@ func (host *Host) execute(req *Request) (resp *Response, err error) {
 	return
 }
 
+func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp *Response, err error) {
+	done := make(chan bool, 1)
+	go func() {
+		resp, err = host.execute(req)
+		done <- true
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		err = fmt.Errorf("request %v timeout", req)
+	}
+	return
+}
+
 func (host *Host) Get(key string) (*Item, error) {
 	req := &Request{Cmd: "get", Keys: []string{key}}
-	resp, err := host.execute(req)
+	resp, err := host.executeWithTimeout(req, ReadTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +162,7 @@ func (host *Host) GetMulti(keys []string) (map[string]*Item, error) {
 
 func (host *Host) store(cmd string, key string, item *Item, noreply bool) (bool, error) {
 	req := &Request{Cmd: cmd, Keys: []string{key}, Item: item, NoReply: noreply}
-	resp, err := host.execute(req)
+	resp, err := host.executeWithTimeout(req, WriteTimeout)
 	return err == nil && resp.status == "STORED", err
 }
 
