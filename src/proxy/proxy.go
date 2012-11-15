@@ -444,13 +444,13 @@ func main() {
 	n := len(servers)
 	N, e := c.Int("proxy", "N")
 	if e == nil {
-		client.N = N
+		client.N = min(N, n)
 	} else {
 		client.N = min(n, 3)
 	}
 	W, e := c.Int("proxy", "W")
 	if e == nil {
-		client.W = W
+		client.W = min(W, n-1)
 	} else {
 		client.W = min(n-1, 2)
 	}

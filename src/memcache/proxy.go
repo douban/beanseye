@@ -21,7 +21,7 @@ func NewProxy(config map[string][]int, auto bool) *Server {
 	client := NewClient(sch)
 	n := len(config)
 	client.N = min(n, 3)
-	client.W = min(2, n)
+	client.W = min(n, 2)
 	return NewServer(client)
 }
 

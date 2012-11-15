@@ -35,21 +35,21 @@ func (c *Client) Get(key string) (r *Item, err error) {
 		if e != nil {
 			err = e
 			c.scheduler.Feedback(host, key, -10)
-			continue
-		}
-		if r != nil {
-			t := float64(time.Now().Sub(st)) / 1e9
-			c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t))
-			for j := 0; j < i; j++ {
-				c.scheduler.Feedback(hosts[j], key, -1)
-			}
-			return r, nil
 		} else {
 			cnt++
-			if cnt >= c.W {
-				// because hosts are sorted
-				return nil, nil
+			if r != nil {
+				t := float64(time.Now().Sub(st)) / 1e9
+				c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t))
+				for j := 0; j < i; j++ {
+					c.scheduler.Feedback(hosts[j], key, -1)
+				}
+				return r, nil
 			}
+		}
+		if cnt >= c.R && i+1 >= c.N {
+			// because hosts are sorted
+			err = nil
+			break
 		}
 	}
 	return
@@ -59,13 +59,15 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 	need := len(keys)
 	rs = make(map[string]*Item, need)
 	hosts := c.scheduler.GetHostsByKey(keys[0])
-	for _, host := range hosts {
+	suc := 0
+	for i, host := range hosts {
 		st := time.Now()
 		r, er := host.GetMulti(keys)
 		if er != nil { // failed
 			err = er
 			c.scheduler.Feedback(host, keys[0], -10)
-			continue
+		} else {
+			suc += 1
 		}
 
 		t := float64(time.Now().Sub(st)) / 1e9
@@ -77,6 +79,10 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 		if len(rs) == need {
 			break
 		}
+		if i+1 >= c.N && suc >= c.R {
+			err = nil
+			break
+		}
 
 		new_keys := []string{}
 		for _, k := range keys {
@@ -85,9 +91,6 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 			}
 		}
 		keys = new_keys
-		if len(keys) == 0 {
-			break
-		}
 	}
 	if len(rs) > 0 {
 		err = nil
@@ -184,7 +187,7 @@ func (c *Client) Incr(key string, value int) (int, error) {
 	if result > 0 {
 		err = nil
 	}
-	return result, err // maximize 
+	return result, err // maximize
 }
 
 func (c *Client) Delete(key string) (r bool, err error) {
