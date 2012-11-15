@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	. "memcache"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -486,5 +487,4 @@ func main() {
 	log.Println("proxy listen on ", addr)
 	proxy.Serve()
 	log.Print("shut down gracefully.")
-	panic("shutdown")
 }
