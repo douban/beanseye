@@ -5,15 +5,17 @@ Beanseye is proxy and monitor for beansdb, written in Go.
 # How to build
 
 Install Go weekly release first, then 
-
+``` bash
 $ export GOPATH=$PWD
 $ go install proxy
+```
 
 # How to run 
 
 prepare your configuration, according to conf/example.ini
-
+``` bash
 $ ./bin/proxy -conf=example.ini
+```
 
 # Proxy
 
