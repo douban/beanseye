@@ -91,6 +91,9 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 			}
 		}
 		keys = new_keys
+		if len(keys) == 0 {
+			break // repeated keys
+		}
 	}
 	if len(rs) > 0 {
 		err = nil
