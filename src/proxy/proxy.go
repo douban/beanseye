@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/kless/goconfig/config"
 	"log"
+	"math"
 	. "memcache"
-	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -28,6 +28,9 @@ func in(s, subs interface{}) (bool, error) {
 }
 
 func timer(v interface{}) string {
+	if v == nil {
+		return ""
+	}
 	t := v.(uint64)
 	switch {
 	case t > 3600*24*2:
@@ -54,20 +57,25 @@ func sum(l interface{}) uint64 {
 }
 
 func sizer(v interface{}) string {
-	var n float32
+	var n float64
 	switch i := v.(type) {
-	case uint64:
-		n = float32(i)
 	case int:
-		n = float32(i)
+		n = float64(i)
+	case uint:
+		n = float64(i)
 	case int64:
-		n = float32(i)
+		n = float64(i)
+	case uint64:
+		n = float64(i)
 	case float64:
-		n = float32(i)
+		n = float64(i)
 	case float32:
-		n = i
+		n = float64(i)
 	default:
 		return "0"
+	}
+	if math.IsInf(n, 0) {
+		return "Inf"
 	}
 	unit := 0
 	var units = []string{"", "K", "M", "G", "T", "P"}
@@ -83,20 +91,25 @@ func sizer(v interface{}) string {
 }
 
 func number(v interface{}) string {
-	var n float32
+	var n float64
 	switch i := v.(type) {
-	case uint64:
-		n = float32(i)
 	case int:
-		n = float32(i)
+		n = float64(i)
+	case uint:
+		n = float64(i)
 	case int64:
-		n = float32(i)
+		n = float64(i)
+	case uint64:
+		n = float64(i)
 	case float64:
-		n = float32(i)
+		n = float64(i)
 	case float32:
-		n = i
+		n = float64(i)
 	default:
 		return "0"
+	}
+	if math.IsInf(n, 0) {
+		return "Inf"
 	}
 	unit := 0
 	var units = []string{"", "k", "m", "b"}
@@ -112,7 +125,7 @@ func number(v interface{}) string {
 }
 
 var tmpls *template.Template
-var SECTIONS = [][]string{{"IN", "Info"}, {"SS", "Server"}} //, {"ST", "Status"}}
+var SECTIONS = [][]string{{"IN", "Info"}, {"SS", "Server"}, {"ST", "Status"}}
 
 var server_stats []map[string]interface{}
 var proxy_stats []map[string]interface{}
@@ -120,178 +133,178 @@ var total_records, uniq_records uint64
 var bucket_stats []string
 var schd Scheduler
 
-func update_stats(servers []string, server_stats []map[string]interface{}, isNode bool) {
-	N := len(servers)
-	hosts := make([]*Host, N)
-	for i, s := range servers {
-		hosts[i] = NewHost(s)
+func update_stats(servers []string, hosts []*Host, server_stats []map[string]interface{}, isNode bool) {
+	if hosts == nil {
+		hosts = make([]*Host, len(servers))
+		for i, s := range servers {
+			hosts[i] = NewHost(s)
+		}
 	}
-	/*    defer func() {
-	      if err := recover(); err != nil {
-	          log.Print("update stats failed", err)
-	      }
-	  }()*/
-	for {
-		for i, h := range hosts {
-			t, err := h.Stat(nil)
-			if err != nil {
-				server_stats[i] = map[string]interface{}{"name": h.Addr}
+
+	// call self after 10 seconds
+	time.AfterFunc(time.Second*10, func() {
+		update_stats(servers, hosts, server_stats, isNode)
+	})
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Print("update stats failed", err)
+		}
+	}()
+
+	for i, h := range hosts {
+		t, err := h.Stat(nil)
+		if err != nil {
+			server_stats[i] = map[string]interface{}{"name": h.Addr}
+			continue
+		}
+
+		st := make(map[string]interface{})
+		st["name"] = h.Addr
+		//log.Print(h.Addr, t)
+		for k, v := range t {
+			switch k {
+			case "version", "pid":
+				st[k] = v
+			case "rusage_maxrss":
+				if n, e := strconv.ParseInt(v, 10, 64); e == nil {
+					st[k] = uint64(n) * 1024
+				}
+			case "rusage_user", "rusage_system":
+				st[k], _ = strconv.ParseFloat(v, 64)
+			default:
+				var e error
+				st[k], e = strconv.ParseUint(v, 10, 64)
+				if e != nil {
+					println("conv to ui64 failed", v)
+					st[k] = 0
+				}
+			}
+		}
+
+		ST := func(name string) uint64 {
+			if v, ok := st[name]; ok && v != nil {
+				return v.(uint64)
+			}
+			return 0
+		}
+
+		st["slow_cmd"] = ST("slow_cmd")
+		st["hit"] = ST("cmd_hits") * 100 / (ST("cmd_get") + 1)
+		st["getset"] = float32(ST("cmd_get")) / float32(ST("cmd_set")+100.0)
+		st["slow"] = ST("cmd_slow") * 100 / (ST("cmd_get") + ST("cmd_set") + ST("cmd_delete") + 1)
+		if maxrss, ok := st["rusage_maxrss"]; ok {
+			st["mpr"] = maxrss.(uint64) / (st["total_items"].(uint64) + st["curr_items"].(uint64) + 1000)
+		}
+		old := server_stats[i]
+		keys := []string{"uptime", "cmd_get", "cmd_set", "cmd_delete", "slow_cmd", "get_hits", "get_misses", "bytes_read", "bytes_written"}
+		if old != nil && len(old) > 2 {
+			for _, k := range keys {
+				if v, ok := st[k]; ok {
+					if ov, ok := old[k]; ok {
+						st["curr_"+k] = v.(uint64) - ov.(uint64)
+					} else {
+						log.Print("no in old", k)
+					}
+				} else {
+					log.Print("no", k)
+				}
+			}
+		} else {
+			for _, k := range keys {
+				st["curr_"+k] = uint64(0)
+			}
+			st["curr_uptime"] = uint64(1)
+		}
+		st["curr_hit"] = st["curr_get_hits"].(uint64) * 100 / (st["curr_cmd_get"].(uint64) + 1)
+		st["curr_getset"] = float32(st["curr_cmd_get"].(uint64)) / float32(st["curr_cmd_set"].(uint64)+1.0)
+		st["curr_slow"] = st["curr_slow_cmd"].(uint64) * 100 / (st["curr_cmd_get"].(uint64) + st["curr_cmd_set"].(uint64) + st["curr_cmd_delete"].(uint64) + 1)
+		keys = []string{"cmd_get", "cmd_set", "cmd_delete", "bytes_read", "bytes_written"}
+		dt := float32(st["curr_uptime"].(uint64))
+		for _, k := range keys {
+			st["curr_"+k] = float32(st["curr_"+k].(uint64)) / dt
+		}
+
+		if isNode {
+			rs, err := h.Get("@")
+			if err != nil || rs == nil {
+				server_stats[i] = st
 				continue
 			}
-
-			st := make(map[string]interface{})
-			st["name"] = h.Addr
-			//log.Print(h.Addr, t)
-			for k, v := range t {
-				switch k {
-				case "version", "pid":
-					st[k] = v
-				case "rusage_maxrss":
-					if n, e := strconv.ParseInt(v, 10, 64); e == nil {
-						st[k] = uint64(n) * 1024
-					}
-				case "rusage_user", "rusage_system":
-					st[k], _ = strconv.ParseFloat(v, 64)
-				default:
-					var e error
-					st[k], e = strconv.ParseUint(v, 10, 64)
-					if e != nil {
-						println("conv to ui64 failed", v)
-						st[k] = 0
-					}
-				}
-			}
-			stv := func(name string) uint64 {
-				v, ok := st[name]
-				if !ok {
-					return 0
-				}
-				r, ok := v.(uint64)
-				if ok {
-					return r
-				}
-				return 0
-			}
-			st["hit"] = stv("get_hits") * 100 / (stv("cmd_get") + 1)
-			st["getset"] = float32(stv("cmd_get")) / float32(stv("cmd_set")+100.0)
-			st["slow"] = stv("slow_cmd") * 100 / (stv("cmd_get") + stv("cmd_set") + stv("cmd_delete") + 1)
-			if maxrss, ok := st["rusage_maxrss"]; ok {
-				st["mpr"] = maxrss.(uint64) / (stv("total_items") + stv("curr_items") + 1000)
-			}
-			old := server_stats[i]
-			keys := []string{"uptime", "cmd_get", "cmd_set", "cmd_delete", "slow_cmd", "get_hits", "get_misses", "bytes_read", "bytes_written"}
-			if old != nil && len(old) > 2 {
-				for _, k := range keys {
-					if v, ok := st[k]; ok {
-						if ov, ok := old[k]; ok {
-							st["curr_"+k] = v.(uint64) - ov.(uint64)
-						} else {
-							log.Print("no in old", k)
-						}
-					} else {
-						log.Print("no", k)
-					}
-				}
-			} else {
-				for _, k := range keys {
-					st["curr_"+k] = uint64(0)
-				}
-				st["curr_uptime"] = uint64(1)
-			}
-			st["curr_hit"] = stv("curr_get_hits") * 100 / (stv("curr_cmd_get") + 1)
-			st["curr_getset"] = float32(stv("curr_cmd_get")) / float32(stv("curr_cmd_set")+1.0)
-			st["curr_slow"] = stv("curr_slow_cmd") * 100 / (stv("curr_cmd_get") + stv("curr_cmd_set") + stv("curr_cmd_delete") + 1)
-			keys = []string{"cmd_get", "cmd_set", "cmd_delete", "bytes_read", "bytes_written"}
-			dt := float32(stv("curr_uptime"))
-			for _, k := range keys {
-				st["curr_"+k] = float32(stv("curr_"+k)) / dt
-			}
-
-			if isNode {
-				rs, err := h.Get("@")
-				if err != nil || rs == nil {
-					server_stats[i] = st
+			bs := make([]uint64, 16)
+			for i, line := range bytes.SplitN(rs.Body, []byte("\n"), 17) {
+				if bytes.Count(line, []byte(" ")) < 2 || line[1] != '/' {
 					continue
 				}
-				bs := make([]uint64, 16)
-				for i, line := range bytes.SplitN(rs.Body, []byte("\n"), 17) {
-					if bytes.Count(line, []byte(" ")) < 2 || line[1] != '/' {
-						continue
-					}
-					vv := bytes.SplitN(line, []byte(" "), 3)
-					cnt, _ := strconv.ParseUint(string(vv[2]), 10, 64)
-					bs[i] = cnt
-				}
-				st["buckets"] = bs
+				vv := bytes.SplitN(line, []byte(" "), 3)
+				cnt, _ := strconv.ParseUint(string(vv[2]), 10, 64)
+				bs[i] = cnt
 			}
-			server_stats[i] = st
+			st["buckets"] = bs
 		}
-		if isNode {
-			total := uint64(0)
-			utotal := uint64(0)
-			cnt := make([]int, 16)
-			m := make([]uint64, 16)
-			for i := 0; i < 16; i++ {
-				for _, st := range server_stats {
-					if st == nil || st["buckets"] == nil {
-						continue
-					}
-					n := st["buckets"].([]uint64)[i]
-					total += n
-					if n > m[i] {
-						m[i] = n
-					}
-				}
-				utotal += m[i]
-				for _, st := range server_stats {
-					if st == nil || st["buckets"] == nil {
-						continue
-					}
-					n := st["buckets"].([]uint64)[i]
-					if n > m[i]*98/100 {
-						cnt[i] += 1
-					}
-				}
-			}
-			for i := 0; i < 16; i++ {
-				switch cnt[i] {
-				case 2:
-					bucket_stats[i] = "warning"
-				case 1:
-					bucket_stats[i] = "dangerous"
-				case 0:
-					bucket_stats[i] = "invalid"
-				}
-			}
+		server_stats[i] = st
+	}
+	if isNode {
+		total := uint64(0)
+		utotal := uint64(0)
+		cnt := make([]int, 16)
+		m := make([]uint64, 16)
+		for i := 0; i < 16; i++ {
 			for _, st := range server_stats {
 				if st == nil || st["buckets"] == nil {
 					continue
 				}
-				for i, c := range st["buckets"].([]uint64) {
-					if c > m[i]*98/100 && cnt[i] < 3 {
-						if cnt[i] == 1 {
-							st["status"] = "dangerous"
-						} else {
-							st["status"] = "warning"
-						}
-						break
-					}
-					if c > 0 && c < m[i]-5 {
-						st["status"] = "warning"
-					}
+				n := st["buckets"].([]uint64)[i]
+				total += n
+				if n > m[i] {
+					m[i] = n
 				}
 			}
-			total_records = total
-			uniq_records = utotal
+			utotal += m[i]
+			for _, st := range server_stats {
+				if st == nil || st["buckets"] == nil {
+					continue
+				}
+				n := st["buckets"].([]uint64)[i]
+				if n > m[i]*98/100 {
+					cnt[i] += 1
+				}
+			}
 		}
-		time.Sleep(1e10) // 10s
+		for i := 0; i < 16; i++ {
+			switch cnt[i] {
+			case 2:
+				bucket_stats[i] = "warning"
+			case 1:
+				bucket_stats[i] = "dangerous"
+			case 0:
+				bucket_stats[i] = "invalid"
+			}
+		}
+		for _, st := range server_stats {
+			if st == nil || st["buckets"] == nil {
+				continue
+			}
+			for i, c := range st["buckets"].([]uint64) {
+				if c > m[i]*98/100 && cnt[i] < 3 {
+					if cnt[i] == 1 {
+						st["status"] = "dangerous"
+					} else {
+						st["status"] = "warning"
+					}
+					break
+				}
+				if c > 0 && c < m[i]-5 {
+					st["status"] = "warning"
+				}
+			}
+		}
+		total_records = total
+		uniq_records = utotal
 	}
 }
 
 func init() {
-}
-
-func Status(w http.ResponseWriter, req *http.Request) {
 	funcs := make(template.FuncMap)
 	funcs["in"] = in
 	funcs["sum"] = sum
@@ -303,7 +316,9 @@ func Status(w http.ResponseWriter, req *http.Request) {
 	tmpls = tmpls.Funcs(funcs)
 	tmpls = template.Must(tmpls.ParseFiles("static/index.html", "static/header.html",
 		"static/info.html", "static/matrix.html", "static/server.html", "static/stats.html"))
+}
 
+func Status(w http.ResponseWriter, req *http.Request) {
 	sections := req.FormValue("sections")
 	if len(sections) == 0 {
 		sections = "IN|SS"
@@ -395,7 +410,7 @@ func main() {
 	} else {
 		server_stats = make([]map[string]interface{}, len(servers))
 		bucket_stats = make([]string, 16)
-		go update_stats(servers, server_stats, true)
+		go update_stats(servers, nil, server_stats, true)
 
 		proxys, e := c.String("monitor", "proxy")
 		if e != nil {
@@ -403,7 +418,7 @@ func main() {
 		}
 		proxies := strings.Split(proxys, ",")
 		proxy_stats = make([]map[string]interface{}, len(proxies))
-		go update_stats(proxies, proxy_stats, false)
+		go update_stats(proxies, nil, proxy_stats, false)
 
 		http.Handle("/", http.HandlerFunc(Status))
 		http.Handle("/static/", http.FileServer(http.Dir("./")))
@@ -471,4 +486,5 @@ func main() {
 	log.Println("proxy listen on ", addr)
 	proxy.Serve()
 	log.Print("shut down gracefully.")
+	panic("shutdown")
 }
