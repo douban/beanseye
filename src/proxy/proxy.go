@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"github.com/kless/goconfig/config"
+	"io"
 	"log"
 	"math"
 	. "memcache"
@@ -23,6 +25,28 @@ import (
 var conf *string = flag.String("conf", "conf/example.ini", "config path")
 var debug *bool = flag.Bool("debug", false, "debug info")
 var allocLimit *int = flag.Int("alloc", 1024*4, "cmem alloc limit")
+
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fn(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		fn(gzipResponseWriter{Writer: gz, ResponseWriter: w}, r)
+	}
+}
 
 func in(s, subs interface{}) (bool, error) {
 	return strings.Contains(s.(string), subs.(string)), nil
@@ -420,7 +444,7 @@ func main() {
 		proxy_stats = make([]map[string]interface{}, len(proxies))
 		go update_stats(proxies, nil, proxy_stats, false)
 
-		http.Handle("/", http.HandlerFunc(Status))
+		http.Handle("/", http.HandlerFunc(makeGzipHandler(Status)))
 		http.Handle("/static/", http.FileServer(http.Dir("./")))
 		go func() {
 			listen, e := c.String("monitor", "listen")
