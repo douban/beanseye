@@ -132,7 +132,7 @@ var reqTests = []reqTest{
 	},
 	reqTest{
 		"error\r\n",
-		"CLIENT_ERROR invalid cmd\r\n",
+		"CLIENT_ERROR unknown command: error\r\n",
 	},
 }
 
