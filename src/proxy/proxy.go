@@ -344,6 +344,8 @@ func init() {
 }
 
 func Status(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 	sections := req.FormValue("sections")
 	if len(sections) == 0 {
 		sections = "IN|SS"
