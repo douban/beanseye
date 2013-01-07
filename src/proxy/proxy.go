@@ -215,7 +215,7 @@ func update_stats(servers []string, hosts []*Host, server_stats []map[string]int
 		}
 
 		st["slow_cmd"] = ST("slow_cmd")
-		st["hit"] = ST("cmd_hits") * 100 / (ST("cmd_get") + 1)
+		st["hit"] = ST("get_hits") * 100 / (ST("cmd_get") + 1)
 		st["getset"] = float32(ST("cmd_get")) / float32(ST("cmd_set")+100.0)
 		st["slow"] = ST("cmd_slow") * 100 / (ST("cmd_get") + ST("cmd_set") + ST("cmd_delete") + 1)
 		if maxrss, ok := st["rusage_maxrss"]; ok {
