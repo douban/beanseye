@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/kless/goconfig/config"
+	"github.com/robfig/config"
 	"log"
 	"math"
 	. "memcache"
