@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
-	"github.com/kless/goconfig/config"
+	"github.com/robfig/config"
 	"io"
 	"log"
 	"math"
