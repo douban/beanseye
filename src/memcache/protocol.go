@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -59,18 +58,28 @@ func (req *Request) Clear() {
 	}
 }
 
-func (req *Request) Write(w io.Writer) error {
+func WriteFull(w io.Writer, buf []byte) error {
+	n, e := w.Write(buf)
+	for e != nil && n > 0 {
+		buf = buf[n:]
+		n, e = w.Write(buf)
+	}
+	return e
+}
+
+func (req *Request) Write(w io.Writer) (e error) {
+
 	switch req.Cmd {
 
 	case "get", "gets", "delete", "quit", "version", "stats", "flush_all":
-		fmt.Fprint(w, req.Cmd)
+		io.WriteString(w, req.Cmd)
 		for _, key := range req.Keys {
-			fmt.Fprint(w, " ", key)
+			io.WriteString(w, " "+key)
 		}
 		if req.NoReply {
-			fmt.Fprint(w, " noreply")
+			io.WriteString(w, " noreply")
 		}
-		fmt.Fprint(w, "\r\n")
+		_, e = io.WriteString(w, "\r\n")
 
 	case "set", "add", "replace", "cas", "prepend", "append":
 		noreplay := ""
@@ -85,45 +94,34 @@ func (req *Request) Write(w io.Writer) error {
 			fmt.Fprintf(w, "%s %s %d %d %d%s\r\n", req.Cmd, req.Keys[0], item.Flag,
 				item.Exptime, len(item.Body), noreplay)
 		}
-		w.Write(item.Body)
-		io.WriteString(w, "\r\n")
+		if WriteFull(w, item.Body) != nil {
+			return e
+		}
+		e = WriteFull(w, []byte("\r\n"))
 
 	case "incr", "decr":
-		fmt.Fprint(w, req.Cmd)
+		io.WriteString(w, req.Cmd)
 		fmt.Fprintf(w, " %s %s", req.Keys[0], string(req.Item.Body))
 		if req.NoReply {
-			fmt.Fprint(w, " noreply")
+			io.WriteString(w, " noreply")
 		}
-		fmt.Fprint(w, "\r\n")
+		_, e = io.WriteString(w, "\r\n")
 
 	default:
 		log.Printf("unkown request cmd:", req.Cmd)
 		return errors.New("unknown cmd: " + req.Cmd)
 	}
 
-	return nil
-}
-
-func readLine(b *bufio.Reader) (s string, e error) {
-	line, isPrefix, err := b.ReadLine()
-	if et, ok := err.(net.Error); ok && et.Temporary() {
-		isPrefix = true
-	}
-	for isPrefix {
-		var line2 []byte
-		line2, isPrefix, err = b.ReadLine()
-		if et, ok := err.(net.Error); ok && et.Temporary() {
-			isPrefix = true
-		}
-		line = append(line, line2...)
-	}
-	return string(line), err
+	return e
 }
 
 func (req *Request) Read(b *bufio.Reader) (e error) {
 	var s string
-	if s, e = readLine(b); e != nil {
+	if s, e = b.ReadString('\n'); e != nil {
 		return e
+	}
+	if !strings.HasSuffix(s, "\r\n") {
+		return errors.New("not completed command")
 	}
 	parts := strings.Fields(s)
 	if len(parts) < 1 {
@@ -225,6 +223,7 @@ func (req *Request) Read(b *bufio.Reader) (e error) {
 
 	default:
 		log.Print("unknown command", req.Cmd)
+		return errors.New("unknown command: " + req.Cmd)
 	}
 
 	return
@@ -246,7 +245,7 @@ func (resp *Response) String() (s string) {
 func (resp *Response) Read(b *bufio.Reader) error {
 	resp.items = make(map[string]*Item, 1)
 	for {
-		s, e := readLine(b)
+		s, e := b.ReadString('\n')
 		if e != nil {
 			log.Print("read response line failed", e)
 			return e
@@ -339,6 +338,7 @@ func (resp *Response) Read(b *bufio.Reader) error {
 				resp.status = "INCR"
 			} else {
 				log.Print("unknown status:", s, resp.status)
+				return errors.New("unknown response:" + resp.status)
 			}
 		}
 		break
@@ -361,25 +361,27 @@ func (resp *Response) Write(w io.Writer) error {
 				fmt.Fprintf(w, "VALUE %s %d %d\r\n", key, item.Flag,
 					len(item.Body))
 			}
-			w.Write(item.Body)
-			io.WriteString(w, "\r\n")
+			if e := WriteFull(w, item.Body); e != nil {
+				return e
+			}
+			WriteFull(w, []byte("\r\n"))
 		}
 		io.WriteString(w, "END\r\n")
 
 	case "STAT":
-		fmt.Fprint(w, resp.msg)
-		fmt.Fprint(w, "END\r\n")
+		io.WriteString(w, resp.msg)
+		io.WriteString(w, "END\r\n")
 
 	case "INCR", "DECR":
 		fmt.Fprintf(w, resp.msg)
 		fmt.Fprintf(w, "\r\n")
 
 	default:
-		fmt.Fprint(w, resp.status)
+		io.WriteString(w, resp.status)
 		if resp.msg != "" {
-			fmt.Fprint(w, " ", resp.msg)
+			io.WriteString(w, " "+resp.msg)
 		}
-		fmt.Fprint(w, "\r\n")
+		io.WriteString(w, "\r\n")
 	}
 	return nil
 }
@@ -562,6 +564,8 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response) {
 		return nil
 
 	default:
+		// client error
+		return nil
 		resp.status = "CLIENT_ERROR"
 		resp.msg = "invalid cmd"
 	}
