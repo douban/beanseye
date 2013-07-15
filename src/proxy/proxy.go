@@ -494,6 +494,10 @@ func main() {
 	} else {
 		client.W = min(n-1, 2)
 	}
+
+	http.HandleFunc("/data", func(w http.ResponseWriter, req *http.Request) {
+	})
+
 	proxy := NewServer(client)
 	listen, e := c.String("proxy", "listen")
 	if e != nil {
