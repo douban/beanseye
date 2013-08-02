@@ -414,7 +414,7 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 			if len(k) > MaxKeyLength {
 				resp.status = "CLIENT_ERROR"
 				resp.msg = "key too long"
-				return resp
+				return
 			}
 		}
 
@@ -425,7 +425,7 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 			if err != nil {
 				resp.status = "SERVER_ERROR"
 				resp.msg = err.Error()
-				return resp
+				return
 			}
 			stat.cmd_get += int64(len(req.Keys))
 			stat.get_hits += int64(len(resp.items))
@@ -438,11 +438,12 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 		} else {
 			stat.cmd_get++
 			key := req.Keys[0]
-			item, err := store.Get(key)
+			var item *Item
+			item, err = store.Get(key)
 			if err != nil {
 				resp.status = "SERVER_ERROR"
 				resp.msg = err.Error()
-				return resp
+				return
 			}
 			if item == nil {
 				stat.get_misses++
@@ -473,11 +474,12 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 
 	case "append":
 		key := req.Keys[0]
-		suc, err := store.Append(key, req.Item.Body)
+		var suc bool
+		suc, err = store.Append(key, req.Item.Body)
 		if err != nil {
 			resp.status = "SERVER_ERROR"
 			resp.msg = err.Error()
-			return resp
+			return
 		}
 
 		stat.cmd_set++
@@ -561,15 +563,17 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 		resp.status = "OK"
 
 	case "quit":
-		return nil
+		resp = nil
+		return
 
 	default:
 		// client error
-		return nil
+		resp = nil
+		return
 		resp.status = "CLIENT_ERROR"
 		resp.msg = "invalid cmd"
 	}
-	return resp
+	return
 }
 
 func contain(vs []string, v string) bool {

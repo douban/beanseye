@@ -53,7 +53,7 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 		}
 
 		t := time.Now()
-        var err error
+		var err error
 		resp, err := req.Process(store, stats)
 		if resp == nil {
 			break
@@ -80,9 +80,9 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 			case "set", "add", "replace":
 				size = len(req.Item.Body)
 			}
-            if err != nil {
-                size = -1
-            }
+			if err != nil {
+				size = -1
+			}
 			AccessLog.Printf("%s %s %s %d %dms", c.RemoteAddr, req.Cmd, key, size, dt.Nanoseconds()/1e6)
 		}
 

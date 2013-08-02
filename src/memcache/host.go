@@ -137,7 +137,7 @@ func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp 
 	case <-done:
 	case <-time.After(timeout):
 		err = fmt.Errorf("request %v timeout", req)
-        log.Print(host.Addr, " request to host timeout", err)
+		log.Print(host.Addr, " request to host timeout", err)
 	}
 	return
 }
