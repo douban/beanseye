@@ -402,11 +402,11 @@ func writeLine(w io.Writer, s string) {
 	io.WriteString(w, "\r\n")
 }
 
-func (req *Request) Process(store Storage, stat *Stats) (resp *Response) {
+func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err error) {
 	resp = new(Response)
 	resp.noreply = req.NoReply
 
-	var err error
+	//var err error
 	switch req.Cmd {
 
 	case "get", "gets":
