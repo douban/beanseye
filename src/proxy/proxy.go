@@ -25,6 +25,7 @@ import (
 var conf *string = flag.String("conf", "conf/example.ini", "config path")
 var debug *bool = flag.Bool("debug", false, "debug info")
 var allocLimit *int = flag.Int("alloc", 1024*4, "cmem alloc limit")
+var basepath = flag.String("basepath", "", "base path")
 
 type gzipResponseWriter struct {
 	io.Writer
@@ -329,7 +330,7 @@ func update_stats(servers []string, hosts []*Host, server_stats []map[string]int
 	}
 }
 
-func init() {
+func Init(basepath string) {
 	funcs := make(template.FuncMap)
 	funcs["in"] = in
 	funcs["sum"] = sum
@@ -337,10 +338,16 @@ func init() {
 	funcs["num"] = number
 	funcs["time"] = timer
 
+	if !bytes.HasSuffix([]byte(basepath), []byte("/")) {
+		basepath = basepath + "/"
+	}
+
 	tmpls = new(template.Template)
 	tmpls = tmpls.Funcs(funcs)
-	tmpls = template.Must(tmpls.ParseFiles("static/index.html", "static/header.html",
-		"static/info.html", "static/matrix.html", "static/server.html", "static/stats.html"))
+	tmpls = template.Must(tmpls.ParseFiles(basepath+"static/index.html",
+		basepath+"static/header.html", basepath+"static/info.html",
+		basepath+"static/matrix.html", basepath+"static/server.html",
+		basepath+"static/stats.html"))
 }
 
 func Status(w http.ResponseWriter, req *http.Request) {
@@ -396,6 +403,15 @@ func min(a, b int) int {
 
 func main() {
 	flag.Parse()
+	curr_path, err1 := os.Getwd()
+	if err1 != nil {
+		log.Fatal("Cannot get pwd")
+		return
+	}
+	if *basepath == "" {
+		*basepath = curr_path
+	}
+	Init(*basepath)
 	c, err := config.ReadDefault(*conf)
 	if err != nil {
 		log.Fatal("read config failed", *conf, err.Error())
