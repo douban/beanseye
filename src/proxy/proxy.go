@@ -463,7 +463,7 @@ func main() {
 		go update_stats(proxies, nil, proxy_stats, false)
 
 		http.Handle("/", http.HandlerFunc(makeGzipHandler(Status)))
-		http.Handle("/static/", http.FileServer(http.Dir("./")))
+		http.Handle("/static/", http.FileServer(http.Dir(*basepath)))
 		go func() {
 			listen, e := c.String("monitor", "listen")
 			if e != nil {
