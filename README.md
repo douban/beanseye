@@ -6,7 +6,7 @@ Beanseye is proxy and monitor for beansdb, written in Go.
 
 Install Go first, then 
 ``` bash
-$ git clone http://code.dapps.douban.com/beanseye.git
+$ git clone URL
 $ cd beanseye
 $ make
 ```
