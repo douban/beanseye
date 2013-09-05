@@ -171,7 +171,7 @@ func NewManualScheduler(config map[string][]int) *ManualScheduler {
 			c.buckets[bi] = append(c.buckets[bi], addr)
 		}
 	}
-	c.hashMethod = fnv1a
+	c.hashMethod = fnv1a1
 	return c
 }
 
@@ -242,7 +242,7 @@ func NewAutoScheduler(config []string, bs int) *AutoScheduler {
 			c.stats[j][i] = 0
 		}
 	}
-	c.hashMethod = fnv1a
+	c.hashMethod = fnv1a1
 	go c.procFeedback()
 
 	c.check()
