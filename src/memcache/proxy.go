@@ -1,5 +1,5 @@
 package memcache
-
+/*
 func min(x, y int) int {
 	if x <= y {
 		return x
@@ -96,7 +96,14 @@ func (p *ReadClient) Len() int {
 	return 0
 }
 
+func (p *ReadClient) Shutdown() {
+}
+
+func (p *ReadClient) WaitForShutdown() {
+}
+
 func NewReadProxy(rw_server, ro_server string) *Server {
 	proxy := NewReadClient(NewHost(rw_server), NewHost(ro_server))
 	return NewServer(proxy)
 }
+*/

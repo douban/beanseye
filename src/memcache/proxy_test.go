@@ -3,8 +3,8 @@ package memcache
 import (
 	"testing"
 	"time"
-	//	"log"
-	//	"os"
+	//    "log"
+	//    "os"
 )
 
 func testProxy(t *testing.T, auto bool) {
