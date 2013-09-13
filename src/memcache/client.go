@@ -134,7 +134,7 @@ func NewClient(sch Scheduler) (c *Client) {
 	c.W = 2
 	c.R = 1
 	c.success = make(chan bool, 1)
-	c.async = make(chan *Cmd, 4*1024)
+	c.async = make(chan *Cmd, 256)
 	go c.AsyncModify()
 	return c
 }
