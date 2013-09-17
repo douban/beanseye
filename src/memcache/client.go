@@ -325,12 +325,7 @@ func (c *Client) Incr(key string, value int) (int, error) {
 
 func (c *Client) Delete(key string) (r bool, err error) {
 	suc := 0
-	got := false
 	for _, host := range c.scheduler.GetHostsByKey(key) {
-		if got {
-			c.TrySendCmd(GenerateCmd(host, key, nil, CMD_DELETE))
-			break
-		}
 		ok, er := host.Delete(key)
 		if er != nil {
 			err = er
@@ -338,7 +333,7 @@ func (c *Client) Delete(key string) (r bool, err error) {
 			suc++
 		}
 		if suc >= c.N {
-			got = true
+			break
 		}
 	}
 	if suc > 0 {

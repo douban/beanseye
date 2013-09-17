@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync"
 )
 
 // Scheduler: route request to nodes
@@ -223,6 +224,7 @@ type AutoScheduler struct {
 	last_check time.Time
 	hashMethod HashMethod
 	feedChan   chan *Feedback
+	lock       *sync.Mutex
 }
 
 func NewAutoScheduler(config []string, bs int) *AutoScheduler {
@@ -243,13 +245,14 @@ func NewAutoScheduler(config []string, bs int) *AutoScheduler {
 		}
 	}
 	c.hashMethod = fnv1a1
+	c.lock = new(sync.Mutex)
 	go c.procFeedback()
 
 	c.check()
 	go func() {
 		for {
 			c.check()
-			time.Sleep(10 * 1e9)
+			time.Sleep(5 * 1e9)
 		}
 	}()
 	return c
@@ -273,12 +276,21 @@ func getBucketByKey(hash_func HashMethod, bs int, key string) int {
 
 func (c *AutoScheduler) GetHostsByKey(key string) []*Host {
 	i := getBucketByKey(c.hashMethod, len(c.buckets), key)
-	cnt := len(c.hosts)
+	host_ids := c.GetBucketSnapshot(i)
+	cnt := len(host_ids)
 	hosts := make([]*Host, cnt)
 	for j := 0; j < cnt; j++ {
-		hosts[j] = c.hosts[c.buckets[i][j]]
+		hosts[j] = c.hosts[host_ids[j]]
 	}
 	return hosts
+}
+
+func (c *AutoScheduler) GetBucketSnapshot(bucket_id int) (ids []int) {
+	ids = make([]int, len(c.hosts))
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	copy(ids, c.buckets[bucket_id])
+	return
 }
 
 func divideKeysByBucket(hash_func HashMethod, bs int, keys []string) [][]string {
@@ -307,7 +319,11 @@ func (c *AutoScheduler) Stats() map[string][]float64 {
 	return r
 }
 
-func swap(a []int, j, k int) {
+func (c *AutoScheduler) swap(a []int, j, k int) {
+	// get the lock
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// release lock
 	a[j], a[k] = a[k], a[j]
 }
 
@@ -363,12 +379,18 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 	}
 	if stats[i]-old > 0 {
 		for k > 0 && stats[buckets[k]] > stats[buckets[k-1]] {
-			swap(buckets, k, k-1)
+			if k == 3 {
+				break
+			}
+			c.swap(buckets, k, k-1)
 			k--
 		}
 	} else {
 		for k < len(c.hosts)-1 && stats[buckets[k]] < stats[buckets[k+1]] {
-			swap(buckets, k, k+1)
+			if k == 2 {
+				break
+			}
+			c.swap(buckets, k, k+1)
 			k++
 		}
 	}
