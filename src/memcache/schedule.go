@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"sync"
 )
 
 // Scheduler: route request to nodes
@@ -224,7 +223,6 @@ type AutoScheduler struct {
 	last_check time.Time
 	hashMethod HashMethod
 	feedChan   chan *Feedback
-	lock       *sync.Mutex
 }
 
 func NewAutoScheduler(config []string, bs int) *AutoScheduler {
@@ -245,7 +243,6 @@ func NewAutoScheduler(config []string, bs int) *AutoScheduler {
 		}
 	}
 	c.hashMethod = fnv1a1
-	c.lock = new(sync.Mutex)
 	go c.procFeedback()
 
 	c.check()
@@ -287,8 +284,6 @@ func (c *AutoScheduler) GetHostsByKey(key string) []*Host {
 
 func (c *AutoScheduler) GetBucketSnapshot(bucket_id int) (ids []int) {
 	ids = make([]int, len(c.hosts))
-	c.lock.Lock()
-	defer c.lock.Unlock()
 	copy(ids, c.buckets[bucket_id])
 	return
 }
@@ -319,11 +314,7 @@ func (c *AutoScheduler) Stats() map[string][]float64 {
 	return r
 }
 
-func (c *AutoScheduler) swap(a []int, j, k int) {
-	// get the lock
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	// release lock
+func swap(a []int, j, k int) {
 	a[j], a[k] = a[k], a[j]
 }
 
@@ -370,7 +361,8 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 	} else {
 		stats[i] += adjust
 	}
-	buckets := c.buckets[index]
+	buckets := make([]int, len(c.hosts))
+	copy(buckets, c.buckets[index])
 	k := 0
 	for k = 0; k < len(c.hosts); k++ {
 		if buckets[k] == i {
@@ -382,7 +374,7 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 			if k == 3 {
 				break
 			}
-			c.swap(buckets, k, k-1)
+			swap(buckets, k, k-1)
 			k--
 		}
 	} else {
@@ -390,10 +382,12 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 			if k == 2 {
 				break
 			}
-			c.swap(buckets, k, k+1)
+			swap(buckets, k, k+1)
 			k++
 		}
 	}
+	// set it to origin
+	c.buckets[index] = buckets
 }
 
 func hextoi(hex string) int {
