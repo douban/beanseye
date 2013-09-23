@@ -13,15 +13,15 @@ import (
 
 // Scheduler: route request to nodes
 type Scheduler interface {
-	Feedback(host *Host, key string, adjust float64) // feedback for auto routing
-	GetHostsByKey(key string) []*Host                // route a key to hosts
-	DivideKeysByBucket(keys []string) [][]string     // route some keys to group of hosts
-	Stats() map[string][]float64                     // internal status
+	Feedback(host *Host, key string, adjust float64, in_check bool) // feedback for auto routing
+	GetHostsByKey(key string) []*Host                               // route a key to hosts
+	DivideKeysByBucket(keys []string) [][]string                    // route some keys to group of hosts
+	Stats() map[string][]float64                                    // internal status
 }
 
 type emptyScheduler struct{}
 
-func (c emptyScheduler) Feedback(host *Host, key string, adjust float64) {}
+func (c emptyScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {}
 
 func (c emptyScheduler) Stats() map[string][]float64 { return nil }
 
@@ -191,7 +191,7 @@ func (c *ManualScheduler) DivideKeysByBucket(keys []string) [][]string {
 	return divideKeysByBucket(c.hashMethod, len(c.buckets), keys)
 }
 
-func (c *ManualScheduler) Feedback(host *Host, key string, adjust float64) {
+func (c *ManualScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {
 
 }
 
@@ -212,6 +212,7 @@ type Feedback struct {
 	hostIndex   int
 	bucketIndex int
 	adjust      float64
+	incheck     bool
 }
 
 // route requests by auto discoved infomation, used in beansdb
@@ -338,21 +339,21 @@ func (c *AutoScheduler) procFeedback() {
 	c.feedChan = make(chan *Feedback, 1024)
 	for {
 		fb := <-c.feedChan
-		c.feedback(fb.hostIndex, fb.bucketIndex, fb.adjust)
+		c.feedback(fb.hostIndex, fb.bucketIndex, fb.adjust, fb.incheck)
 	}
 }
 
-func (c *AutoScheduler) Feedback(host *Host, key string, adjust float64) {
+func (c *AutoScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {
 	index := getBucketByKey(c.hashMethod, len(c.buckets), key)
 	i := c.hostIndex(host)
 	if i < 0 {
 		return
 	}
 	//c.feedback(i, index, adjust)
-	c.feedChan <- &Feedback{hostIndex: i, bucketIndex: index, adjust: adjust}
+	c.feedChan <- &Feedback{hostIndex: i, bucketIndex: index, adjust: adjust, incheck: in_check}
 }
 
-func (c *AutoScheduler) feedback(i, index int, adjust float64) {
+func (c *AutoScheduler) feedback(i, index int, adjust float64, in_check bool) {
 	stats := c.stats[index]
 	old := stats[i]
 	if adjust >= 0 {
@@ -371,7 +372,7 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 	}
 	if stats[i]-old > 0 {
 		for k > 0 && stats[buckets[k]] > stats[buckets[k-1]] {
-			if k == 3 {
+			if k == 3 && !in_check {
 				break
 			}
 			swap(buckets, k, k-1)
@@ -379,7 +380,7 @@ func (c *AutoScheduler) feedback(i, index int, adjust float64) {
 		}
 	} else {
 		for k < len(c.hosts)-1 && stats[buckets[k]] < stats[buckets[k+1]] {
-			if k == 2 {
+			if k == 2 && !in_check {
 				break
 			}
 			swap(buckets, k, k+1)
@@ -418,7 +419,7 @@ func (c *AutoScheduler) listHost(host *Host, dir string) {
 		vv := bytes.SplitN(line, []byte(" "), 3)
 		cnt, _ := strconv.ParseFloat(string(vv[2]), 64)
 		adjust := float64(math.Sqrt(cnt))
-		c.Feedback(host, dir+string(vv[0]), adjust)
+		c.Feedback(host, dir+string(vv[0]), adjust, true)
 	}
 }
 

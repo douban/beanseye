@@ -147,14 +147,14 @@ func (c *Client) Get(key string) (r *Item, err error) {
 		r, e := host.Get(key)
 		if e != nil {
 			err = e
-			c.scheduler.Feedback(host, key, -10)
+			c.scheduler.Feedback(host, key, -10, false)
 		} else {
 			cnt++
 			if r != nil {
 				t := float64(time.Now().Sub(st)) / 1e9
-				c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t))
+				c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t), false)
 				for j := 0; j < i; j++ {
-					c.scheduler.Feedback(hosts[j], key, -1)
+					c.scheduler.Feedback(hosts[j], key, -1, false)
 				}
 				return r, nil
 			}
@@ -178,13 +178,13 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 		r, er := host.GetMulti(keys)
 		if er != nil { // failed
 			err = er
-			c.scheduler.Feedback(host, keys[0], -10)
+			c.scheduler.Feedback(host, keys[0], -10, false)
 		} else {
 			suc += 1
 		}
 
 		t := float64(time.Now().Sub(st)) / 1e9
-		c.scheduler.Feedback(host, keys[0], -float64(math.Sqrt(t)*t))
+		c.scheduler.Feedback(host, keys[0], -float64(math.Sqrt(t)*t), false)
 		for k, v := range r {
 			rs[k] = v
 		}
@@ -257,7 +257,7 @@ func (c *Client) Set(key string, item *Item, noreply bool) (bool, error) {
 		if ok, err := host.Set(key, item, noreply); err == nil && ok {
 			suc++
 		} else {
-			c.scheduler.Feedback(host, key, -2)
+			c.scheduler.Feedback(host, key, -2, false)
 		}
 		if suc >= c.W && (i+1) >= c.N {
 			got = true
