@@ -274,19 +274,14 @@ func getBucketByKey(hash_func HashMethod, bs int, key string) int {
 
 func (c *AutoScheduler) GetHostsByKey(key string) []*Host {
 	i := getBucketByKey(c.hashMethod, len(c.buckets), key)
-	host_ids := c.GetBucketSnapshot(i)
+	//host_ids := c.GetBucketSnapshot(i)
+	host_ids := c.buckets[i]
 	cnt := len(host_ids)
 	hosts := make([]*Host, cnt)
 	for j := 0; j < cnt; j++ {
 		hosts[j] = c.hosts[host_ids[j]]
 	}
 	return hosts
-}
-
-func (c *AutoScheduler) GetBucketSnapshot(bucket_id int) (ids []int) {
-	ids = make([]int, len(c.hosts))
-	copy(ids, c.buckets[bucket_id])
-	return
 }
 
 func divideKeysByBucket(hash_func HashMethod, bs int, keys []string) [][]string {
