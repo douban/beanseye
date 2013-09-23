@@ -418,6 +418,18 @@ func (c *AutoScheduler) listHost(host *Host, dir string) {
 	}
 }
 
+func (c *AutoScheduler) Showbuckets() {
+    log.Println("--- Buckets ---")
+    for i, b := range c.buckets {
+        log.Println("bucket ", i, " :")
+        for _, id := range b {
+            host := c.hosts[id]
+            log.Println(host.Addr)
+        }
+        log.Println("+++++++++++++++++++++")
+    }
+}
+
 func (c *AutoScheduler) check() {
 	defer func() {
 		if e := recover(); e != nil {
