@@ -402,7 +402,7 @@ func writeLine(w io.Writer, s string) {
 	io.WriteString(w, "\r\n")
 }
 
-func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err error) {
+func (req *Request) Process(store Storage, stat *Stats) (resp *Response, targets []string, err error) {
 	resp = new(Response)
 	resp.noreply = req.NoReply
 
@@ -421,7 +421,7 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 		resp.status = "VALUE"
 		resp.cas = req.Cmd == "gets"
 		if len(req.Keys) > 1 {
-			resp.items, err = store.GetMulti(req.Keys)
+			resp.items, targets, err = store.GetMulti(req.Keys)
 			if err != nil {
 				resp.status = "SERVER_ERROR"
 				resp.msg = err.Error()
@@ -439,7 +439,7 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 			stat.cmd_get++
 			key := req.Keys[0]
 			var item *Item
-			item, err = store.Get(key)
+			item, targets, err = store.Get(key)
 			if err != nil {
 				resp.status = "SERVER_ERROR"
 				resp.msg = err.Error()
@@ -457,7 +457,8 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 
 	case "set", "add", "replace", "cas":
 		key := req.Keys[0]
-		suc, err := store.Set(key, req.Item, req.NoReply)
+		var suc bool
+		suc, targets, err = store.Set(key, req.Item, req.NoReply)
 		if err != nil {
 			resp.status = "SERVER_ERROR"
 			resp.msg = err.Error()
@@ -475,7 +476,7 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 	case "append":
 		key := req.Keys[0]
 		var suc bool
-		suc, err = store.Append(key, req.Item.Body)
+		suc, targets, err = store.Append(key, req.Item.Body)
 		if err != nil {
 			resp.status = "SERVER_ERROR"
 			resp.msg = err.Error()
@@ -501,8 +502,8 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 			resp.msg = "invalid number"
 			break
 		}
-
-		result, err := store.Incr(key, add)
+		var result int
+		result, targets, err = store.Incr(key, add)
 		if err != nil {
 			resp.status = "SERVER_ERROR"
 			resp.msg = err.Error()
@@ -518,7 +519,8 @@ func (req *Request) Process(store Storage, stat *Stats) (resp *Response, err err
 
 	case "delete":
 		key := req.Keys[0]
-		suc, err := store.Delete(key)
+		var suc bool
+		suc, targets, err = store.Delete(key)
 		if err != nil {
 			resp.status = "SERVER_ERROR"
 			resp.msg = err.Error()

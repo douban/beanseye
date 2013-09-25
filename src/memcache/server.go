@@ -54,7 +54,7 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 
 		t := time.Now()
 		var err error
-		resp, err := req.Process(store, stats)
+		resp, hosts, err := req.Process(store, stats)
 		if resp == nil {
 			break
 		}
@@ -83,7 +83,7 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 			if err != nil {
 				size = -1
 			}
-			AccessLog.Printf("%s %s %s %d %dms", c.RemoteAddr, req.Cmd, key, size, dt.Nanoseconds()/1e6)
+			AccessLog.Printf("%s %s %s %d from %s %dms", c.RemoteAddr, req.Cmd, key, size, strings.Join(hosts, ","), dt.Nanoseconds()/1e6)
 		}
 
 		req.Clear()

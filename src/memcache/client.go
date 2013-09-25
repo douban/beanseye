@@ -139,14 +139,13 @@ func NewClient(sch Scheduler) (c *Client) {
 	return c
 }
 
-func (c *Client) Get(key string) (r *Item, err error) {
+func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 	hosts := c.scheduler.GetHostsByKey(key)
 	cnt := 0
 	for i, host := range hosts {
 		st := time.Now()
-		r, e := host.Get(key)
-		if e != nil {
-			err = e
+		r, err = host.Get(key)
+		if err != nil {
 			c.scheduler.Feedback(host, key, -10, false)
 		} else {
 			cnt++
@@ -156,19 +155,25 @@ func (c *Client) Get(key string) (r *Item, err error) {
 				for j := 0; j < i; j++ {
 					c.scheduler.Feedback(hosts[j], key, -1, false)
 				}
-				return r, nil
+				// got the right rval
+				targets = []string{host.Addr}
+				err = nil
+				//return r, nil
+				return
 			}
 		}
 		if cnt >= c.R && i+1 >= c.N {
 			// because hosts are sorted
 			err = nil
+			// because no item gotten
 			break
 		}
 	}
+	// here is a failure exit
 	return
 }
 
-func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
+func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string, err error) {
 	need := len(keys)
 	rs = make(map[string]*Item, need)
 	hosts := c.scheduler.GetHostsByKey(keys[0])
@@ -181,6 +186,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 			c.scheduler.Feedback(host, keys[0], -10, false)
 		} else {
 			suc += 1
+			targets = append(targets, host.Addr)
 		}
 
 		t := float64(time.Now().Sub(st)) / 1e9
@@ -194,6 +200,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 		}
 		if i+1 >= c.N && suc >= c.R {
 			err = nil
+			targets = []string{}
 			break
 		}
 
@@ -214,7 +221,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, err error) {
 	return
 }
 
-func (c *Client) GetMulti(keys []string) (rs map[string]*Item, err error) {
+func (c *Client) GetMulti(keys []string) (rs map[string]*Item, targets []string, err error) {
 	var lock sync.Mutex
 	rs = make(map[string]*Item, len(keys))
 
@@ -223,13 +230,14 @@ func (c *Client) GetMulti(keys []string) (rs map[string]*Item, err error) {
 	for _, ks := range gs {
 		if len(ks) > 0 {
 			go func(keys []string) {
-				r, e := c.getMulti(keys)
+				r, t, e := c.getMulti(keys)
 				if e != nil {
 					err = e
 				} else {
 					for k, v := range r {
 						lock.Lock()
 						rs[k] = v
+						targets = append(targets, t...)
 						lock.Unlock()
 					}
 				}
@@ -246,7 +254,7 @@ func (c *Client) GetMulti(keys []string) (rs map[string]*Item, err error) {
 	return
 }
 
-func (c *Client) Set(key string, item *Item, noreply bool) (bool, error) {
+func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []string, final_err error) {
 	suc := 0
 	got := false
 	for i, host := range c.scheduler.GetHostsByKey(key) {
@@ -256,21 +264,32 @@ func (c *Client) Set(key string, item *Item, noreply bool) (bool, error) {
 		}
 		if ok, err := host.Set(key, item, noreply); err == nil && ok {
 			suc++
+			targets = append(targets, host.Addr)
 		} else {
 			c.scheduler.Feedback(host, key, -2, false)
 		}
-		if suc >= c.W && (i+1) >= c.N {
-			got = true
+		if suc >= c.W {
+			if (i + 1) < c.N {
+				got = true
+				// first W all success, than async the N-W hosts
+			} else {
+				// if have try more or equal than c.N
+				// no need to async
+				break
+			}
 			// if it is the last host, async is no need
 		}
 	}
 	if suc == 0 {
-		return false, errors.New("write failed")
+		ok = false
+		final_err = errors.New("write failed")
+		return
 	}
-	return suc >= c.W, nil
+	ok = (suc >= c.W)
+	return
 }
 
-func (c *Client) Append(key string, value []byte) (bool, error) {
+func (c *Client) Append(key string, value []byte) (ok bool, targets []string, final_err error) {
 	suc := 0
 	got := false
 	for i, host := range c.scheduler.GetHostsByKey(key) {
@@ -280,22 +299,33 @@ func (c *Client) Append(key string, value []byte) (bool, error) {
 		}
 		if ok, err := host.Append(key, value); err == nil && ok {
 			suc++
+			targets = append(targets, host.Addr)
 		}
-		if suc >= c.W && (i+1) >= c.N {
-			got = true
+		if suc >= c.W {
+			if (i + 1) < c.N {
+				got = true
+				// first W all success, than async the N-W hosts
+			} else {
+				// if have try more or equal than c.N
+				// no need to async
+				break
+			}
 			// if it is the last host, async is no need
 		}
 	}
 	if suc == 0 {
-		return false, errors.New("write failed")
+		ok = false
+		final_err = errors.New("write failed")
+		return
 	}
-	return suc >= c.W, nil
+	ok = (suc >= c.W)
+	return
 }
 
-func (c *Client) Incr(key string, value int) (int, error) {
-	result := 0
+func (c *Client) Incr(key string, value int) (result int, targets []string, err error) {
+	//result := 0
 	suc := 0
-	var err error
+	//var err error
 	got := false
 	for i, host := range c.scheduler.GetHostsByKey(key) {
 		if got {
@@ -309,21 +339,30 @@ func (c *Client) Incr(key string, value int) (int, error) {
 		}
 		if r > 0 {
 			suc++
+			targets = append(targets, host.Addr)
 		}
 		if r > result {
 			result = r
 		}
 		if suc >= c.W && (i+1) >= c.N {
-			got = true
+			if (i + 1) < c.N {
+				got = true
+				// first W all success, than async the N-W hosts
+			} else {
+				// if have try more or equal than c.N
+				// no need to async
+				break
+			}
 		}
 	}
 	if result > 0 {
 		err = nil
 	}
-	return result, err // maximize
+	//return result, err // maximize
+	return
 }
 
-func (c *Client) Delete(key string) (r bool, err error) {
+func (c *Client) Delete(key string) (r bool, targets []string, err error) {
 	suc := 0
 	for _, host := range c.scheduler.GetHostsByKey(key) {
 		ok, er := host.Delete(key)
@@ -331,6 +370,7 @@ func (c *Client) Delete(key string) (r bool, err error) {
 			err = er
 		} else if ok {
 			suc++
+			targets = append(targets, host.Addr)
 		}
 		if suc >= c.N {
 			break
@@ -339,7 +379,9 @@ func (c *Client) Delete(key string) (r bool, err error) {
 	if suc > 0 {
 		err = nil
 	}
-	return suc >= c.W, err
+	r = (suc >= c.W)
+	//return suc >= c.W, err
+	return
 }
 
 func (c *Client) Len() int {
