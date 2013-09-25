@@ -83,6 +83,9 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 			if err != nil {
 				size = -1
 			}
+			if len(hosts) == 0 {
+				hosts = append(hosts, "NoWhere")
+			}
 			AccessLog.Printf("%s %s %s %d from %s %dms", c.RemoteAddr, req.Cmd, key, size, strings.Join(hosts, ","), dt.Nanoseconds()/1e6)
 		}
 

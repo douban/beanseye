@@ -488,7 +488,7 @@ func main() {
 		if err != nil {
 			log.Print("open " + accesslog + " failed：" + err.Error())
 		} else {
-			AccessLog = log.New(logf, "", log.Ldate|log.Ltime)
+			AccessLog = log.New(logf, "", log.Ldate|log.Ltime|log.Lmicroseconds)
 		}
 	}
 	slow, err := c.Int("proxy", "slow")
