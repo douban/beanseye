@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync/atomic"
 )
 
 var MaxFreeConns = 20
@@ -17,9 +18,10 @@ var ReadTimeout time.Duration = time.Millisecond * 2000
 var WriteTimeout time.Duration = time.Millisecond * 2000
 
 type Host struct {
-	Addr     string
-	nextDial time.Time
-	conns    chan net.Conn
+	Addr       string
+	nextDial   time.Time
+	conns      chan net.Conn
+	conn_count int32
 }
 
 func NewHost(addr string) *Host {
@@ -60,6 +62,7 @@ func (host *Host) createConn() (net.Conn, error) {
 		host.nextDial = now.Add(time.Second * 10)
 		return nil, err
 	}
+	atomic.AddInt32(&host.conn_count, 1)
 	return conn, nil
 }
 
@@ -72,18 +75,21 @@ func (host *Host) getConn() (c net.Conn, err error) {
 	default:
 		c, err = host.createConn()
 	}
+	log.Print(fmt.Sprintf("Host %s has %d connections", host.Addr, host.conn_count))
 	return
 }
 
 func (host *Host) releaseConn(conn net.Conn) {
 	if host.conns == nil {
 		conn.Close()
+		atomic.AddInt32(&host.conn_count, -1)
 		return
 	}
 	select {
 	case host.conns <- conn:
 	default:
 		conn.Close()
+		atomic.AddInt32(&host.conn_count, -1)
 	}
 }
 
