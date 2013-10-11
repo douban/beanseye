@@ -14,8 +14,6 @@ type Storage interface {
 	Incr(key string, value int) (int, []string, error)
 	Delete(key string) (bool, []string, error)
 	Len() int
-	Shutdown()
-	WaitForShutdown()
 }
 
 type mapStore struct {

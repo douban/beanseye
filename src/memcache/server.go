@@ -175,9 +175,7 @@ func (s *Server) Serve() (e error) {
 		s.Unlock()
 		time.Sleep(1e8)
 	}
-	s.store.Shutdown()
-	s.store.WaitForShutdown()
-	// log.Print("shutdown ", s.addr, "\n")
+	log.Print("shutdown ", s.addr, "\n")
 	return nil
 }
 
