@@ -498,19 +498,37 @@ func main() {
 	SlowCmdTime = time.Duration(int64(slow) * 1e6)
 
 	schd = NewAutoScheduler(servers, 16)
-	client := NewClient(schd)
+
+	readonly, err := c.Bool("proxy", "readonly")
+	if err != nil {
+		readonly = false
+	}
+
 	n := len(servers)
 	N, e := c.Int("proxy", "N")
 	if e == nil {
-		client.N = min(N, n)
+		N = min(N, n)
 	} else {
-		client.N = min(n, 3)
+		N = min(n, 3)
 	}
 	W, e := c.Int("proxy", "W")
 	if e == nil {
-		client.W = min(W, n-1)
+		W = min(W, n-1)
 	} else {
-		client.W = min(n-1, 2)
+		W = min(n-1, 2)
+	}
+
+	var client Storage
+	if readonly {
+		readonlyclient := NewRClient(schd)
+		readonlyclient.N = N
+		readonlyclient.W = W
+		client = readonlyclient
+	} else {
+		fullclient := NewClient(schd)
+		fullclient.N = N
+		fullclient.W = W
+		client = fullclient
 	}
 
 	http.HandleFunc("/data", func(w http.ResponseWriter, req *http.Request) {
