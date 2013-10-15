@@ -57,12 +57,12 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 				return
 			}
 		}
-		if cnt >= c.R && i + 1 >= c.N {
+		if cnt >= c.R && i+1 >= c.N {
 			// because hosts are sorted
 			err = nil
-            for _, fail_host := range hosts[:3] {
-                targets = append(targets, fail_host.Addr)
-            }
+			for _, fail_host := range hosts[:3] {
+				targets = append(targets, fail_host.Addr)
+			}
 			// because no item gotten
 			break
 		}
