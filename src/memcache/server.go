@@ -86,7 +86,13 @@ func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
 			if len(hosts) == 0 {
 				hosts = append(hosts, "NoWhere")
 			}
-			AccessLog.Printf("%s %s %s %d from %s %dms", c.RemoteAddr, req.Cmd, key, size, strings.Join(hosts, ","), dt.Nanoseconds()/1e6)
+            var hosts_str string
+            if req.Cmd == "get" && size == 0 {
+                hosts_str = fmt.Sprintf("FAILED with %s", strings.Join(hosts, ","))
+            } else {
+                hosts_str = fmt.Sprintf("from %s", strings.Join(hosts, ","))
+            }
+			AccessLog.Printf("%s %s %s %d %s %dms", c.RemoteAddr, req.Cmd, key, size, hosts_str, dt.Nanoseconds()/1e6)
 		}
 
 		req.Clear()
