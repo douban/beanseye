@@ -4,7 +4,7 @@ GOPATH:=$(CURDIR)
 export GOPATH
 
 fmt:
-	gofmt -w -l -tabwidth=4 src/*/*.go
+	gofmt -w -l -tabwidth=4 .
 
 dep:
 	go get github.com/robfig/config
