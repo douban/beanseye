@@ -1,9 +1,9 @@
 package memcache
 
 import (
-	"time"
-	"fmt"
 	"errors"
+	"fmt"
+	"time"
 )
 
 type FlowServerConn struct {

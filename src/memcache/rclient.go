@@ -6,9 +6,9 @@ package memcache
 
 import (
 	"errors"
-	"time"
 	"math"
 	"sync"
+	"time"
 )
 
 type RClient struct {
