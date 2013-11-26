@@ -3,6 +3,7 @@ package memcache
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"fmt"
 )
 
 var AccessLog *log.Logger = nil
@@ -203,6 +203,7 @@ func (s *Server) Shutdown() {
 	}
 	s.Unlock()
 }
+
 /*
 func StartServer(addr string) (*Server, error) {
 	store := NewMapStore()
