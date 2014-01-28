@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -13,9 +12,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
+    "log"
 )
 
 var AccessLog *log.Logger = nil
+var ErrorLog *log.Logger = nil
 var SlowCmdTime = time.Millisecond * 100 // 100ms
 
 type ServerConn struct {
@@ -142,7 +143,7 @@ func (s *Server) Serve() (e error) {
 		syscall.SIGHUP, syscall.SIGSTOP, syscall.SIGQUIT)
 	go func(ch <-chan os.Signal) {
 		sig := <-ch
-		log.Print("signal recieved " + sig.String())
+		ErrorLog.Print("signal recieved " + sig.String())
 		s.Shutdown()
 	}(sch)
 
@@ -150,7 +151,7 @@ func (s *Server) Serve() (e error) {
 	for {
 		rw, e := s.l.Accept()
 		if e != nil {
-			log.Print("Accept failed: ", e)
+			ErrorLog.Print("Accept failed: ", e)
 			return e
 		}
 		if s.stop {
@@ -182,7 +183,7 @@ func (s *Server) Serve() (e error) {
 		s.Unlock()
 		time.Sleep(1e8)
 	}
-	log.Print("shutdown ", s.addr, "\n")
+	ErrorLog.Print("shutdown ", s.addr, "\n")
 	return nil
 }
 
