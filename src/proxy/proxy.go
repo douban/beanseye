@@ -478,30 +478,19 @@ func main() {
 
 	AllocLimit = *allocLimit
 
-	var logf *os.File = nil
-	if len(eyeconfig.AccessLog) > 0 {
-		logf, err = os.OpenFile(eyeconfig.AccessLog, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			log.Print("open " + eyeconfig.AccessLog + " failed: " + err.Error())
-		}
-	}
-	if logf == nil {
-		logf = os.Stdout
-	}
-	AccessLog = log.New(logf, "", log.Ldate|log.Ltime|log.Lmicroseconds)
+    var success bool
 
-	// re-use logf for ErrorLog
-	logf = nil
+	if len(eyeconfig.AccessLog) > 0 {
+        if success, err = OpenAccessLog(eyeconfig.AccessLog); !success {
+            log.Fatalf("open AccessLog file in path: %s with error : %s", eyeconfig.AccessLog, err.Error())
+        }
+	}
+
 	if len(eyeconfig.ErrorLog) > 0 {
-		logf, err = os.OpenFile(eyeconfig.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			log.Print("open " + eyeconfig.ErrorLog + " failed: " + err.Error())
-		}
+        if success, err = OpenErrorLog(eyeconfig.ErrorLog); !success {
+            log.Fatalf("open ErrorLog file in path: %s with error : %s", eyeconfig.ErrorLog, err.Error())
+        }
 	}
-	if logf == nil {
-		logf = os.Stderr
-	}
-	ErrorLog = log.New(logf, "", log.Ldate|log.Ltime|log.Lmicroseconds)
 
 	slow := eyeconfig.Slow
 	if slow == 0 {

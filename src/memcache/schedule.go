@@ -159,6 +159,11 @@ type ManualScheduler struct {
 
 // the string is a Hex int string, if it start with -, it means serve the bucket as a backup
 func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler {
+    defer func() {
+        if r := recover(); r != nil {
+            ErrorLog.Fatalln("NewManualScheduler panic, maybe node's supporting bucket more than buckets number")
+        }
+    }()
 	c := new(ManualScheduler)
 	c.hosts = make([]*Host, len(config))
 	c.buckets = make([][]int, bs)

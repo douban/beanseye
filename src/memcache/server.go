@@ -12,11 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
-    "log"
 )
 
-var AccessLog *log.Logger = nil
-var ErrorLog *log.Logger = nil
 var SlowCmdTime = time.Millisecond * 100 // 100ms
 
 type ServerConn struct {
