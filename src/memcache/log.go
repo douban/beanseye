@@ -43,7 +43,11 @@ func OpenAccessLog(access_log_path string) (success bool, err error) {
             access_log = (*log.Logger)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&AccessLog)), unsafe.Pointer(access_log)))
             access_file = (*os.File)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&AccessFd)), unsafe.Pointer(access_file)))
             runtime.SetFinalizer(access_file, func(f *os.File) {
-                f.Close()
+                if e := f.Close(); e == nil {
+                    log.Println("close the old accesslog fd success!")
+                } else {
+                    log.Println("close the old accesslog fd failure with, ", e)
+                }
             })
         }
     }
@@ -70,7 +74,11 @@ func OpenErrorLog(error_log_path string) (success bool, err error) {
             error_log = (*log.Logger)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorLog)), unsafe.Pointer(error_log)))
             error_file = (*os.File)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorFd)), unsafe.Pointer(error_file)))
             runtime.SetFinalizer(error_file, func(f *os.File) {
-                f.Close()
+                if e := f.Close(); e == nil {
+                    log.Println("close the old errorlog fd success!")
+                } else {
+                    log.Println("close the old errorlog fd failure with, ", e)
+                }
             })
         }
     }
