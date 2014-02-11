@@ -143,7 +143,6 @@ func (s *Server) Serve() (e error) {
         case syscall.SIGINT: // Ctrl+C
             OpenAccessLog(AccessLogPath)
             OpenErrorLog(ErrorLogPath)
-        case syscall.SIGSTOP: // Ctrl+Z
         default:
 		    ErrorLog.Print("signal recieved " + sig.String())
 		    s.Shutdown()
