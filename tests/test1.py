@@ -18,12 +18,12 @@ class Test1(TestBeanseyeBase):
 
     def setUp(self):
         self._init_dir()
-        self.backend1_p = BeansdbInstance(self.data_base_path, 57901)
-        self.backend2_p = BeansdbInstance(self.data_base_path, 57902)
-        self.backend3_p = BeansdbInstance(self.data_base_path, 57903)
-        self.backend1_p.start()
-        self.backend2_p.start()
-        self.backend3_p.start()
+        self.backend1 = BeansdbInstance(self.data_base_path, 57901)
+        self.backend2 = BeansdbInstance(self.data_base_path, 57902)
+        self.backend3 = BeansdbInstance(self.data_base_path, 57903)
+        self.backend1.start()
+        self.backend2.start()
+        self.backend3.start()
         proxy_conf = {
                 'servers': [
                     self.backend1_addr + ' F E D C B A 9 8 7 6 5 4 3 2 1 0',
@@ -45,24 +45,34 @@ class Test1(TestBeanseyeBase):
 
     def test1(self):
         data1 = random_string(10)
+        data2 = random_string(10)
         time.sleep(1)
-        # test write
+        print "test normal write"
         proxy = BeansDBProxy([self.proxy_addr])
         proxy.delete('key1')
         proxy.set('key1', data1)
         self._assert_data(self.backend1_addr, 'key1', data1)
         self._assert_data(self.backend2_addr, 'key1', data1)
         self._assert_data(self.backend3_addr, 'key1', data1)
+        print "down backend1"
+        self.backend2.stop()
+        proxy.set('key2', data2)
+        self._assert_data(self.proxy_addr, 'key2', data2)
+        self._assert_data(self.backend1_addr, 'key2', data1)
+        self._assert_data(self.backend2_addr, 'key2', None)
+        self._assert_data(self.backend3_addr, 'key2', data1)
+
+
 
 
     def tearDown(self):
         stop_svc(self.proxy_p)
-        self.backend1_p.stop()
-        self.backend2_p.stop()
-        self.backend3_p.stop()
-        self.backend1_p.clean()
-        self.backend2_p.clean()
-        self.backend3_p.clean()
+        self.backend1.stop()
+        self.backend2.stop()
+        self.backend3.stop()
+        self.backend1.clean()
+        self.backend2.clean()
+        self.backend3.clean()
         
 if __name__ == '__main__':
     unittest.main()
