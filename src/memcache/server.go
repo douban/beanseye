@@ -145,6 +145,8 @@ func (s *Server) Serve() (e error) {
             OpenErrorLog(ErrorLogPath)
         default:
 		    ErrorLog.Print("signal recieved " + sig.String())
+            AccessFd.Close()
+            ErrorFd.Close()
 		    s.Shutdown()
         }
 	}(sch)
@@ -193,7 +195,7 @@ func (s *Server) Shutdown() {
 	s.stop = true
 
 	// try to connect
-	net.Dial("tcp", s.addr)
+	// net.Dial("tcp", s.addr)
 
 	// notify conns
 	s.Lock()
