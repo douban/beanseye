@@ -8,7 +8,8 @@ import (
     "unsafe"
     "runtime"
 )
-
+var AccessLogPath string
+var ErrorLogPath string
 var AccessLog *log.Logger = nil
 var ErrorLog *log.Logger = nil
 var AccessFd *os.File = nil

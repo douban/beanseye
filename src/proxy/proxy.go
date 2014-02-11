@@ -481,12 +481,14 @@ func main() {
     var success bool
 
 	if len(eyeconfig.AccessLog) > 0 {
+        AccessLogPath = eyeconfig.AccessLog
         if success, err = OpenAccessLog(eyeconfig.AccessLog); !success {
             log.Fatalf("open AccessLog file in path: %s with error : %s", eyeconfig.AccessLog, err.Error())
         }
 	}
 
 	if len(eyeconfig.ErrorLog) > 0 {
+        ErrorLogPath = eyeconfig.ErrorLog
         if success, err = OpenErrorLog(eyeconfig.ErrorLog); !success {
             log.Fatalf("open ErrorLog file in path: %s with error : %s", eyeconfig.ErrorLog, err.Error())
         }
@@ -519,7 +521,7 @@ func main() {
 	//schd = NewAutoScheduler(servers, 16)
 	schd = NewManualScheduler(server_configs, eyeconfig.Buckets, N)
 
-	var client Storage
+	var client DistributeStorage
 	if readonly {
 		client = NewRClient(schd, N, W, R)
 	} else {

@@ -40,7 +40,7 @@ func (c *ServerConn) Shutdown() {
 	c.closeAfterReply = true
 }
 
-func (c *ServerConn) Serve(store Storage, stats *Stats) (e error) {
+func (c *ServerConn) Serve(store DistributeStorage, stats *Stats) (e error) {
 	rbuf := bufio.NewReader(c.rwc)
 	wbuf := bufio.NewWriter(c.rwc)
 
@@ -109,13 +109,13 @@ type Server struct {
 	sync.Mutex
 	addr  string
 	l     net.Listener
-	store Storage
+	store DistributeStorage
 	conns map[string]*ServerConn
 	stats *Stats
 	stop  bool
 }
 
-func NewServer(store Storage) *Server {
+func NewServer(store DistributeStorage) *Server {
 	s := new(Server)
 	s.store = store
 	s.conns = make(map[string]*ServerConn, 1024)
@@ -139,9 +139,15 @@ func (s *Server) Serve() (e error) {
 	signal.Notify(sch, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT,
 		syscall.SIGHUP, syscall.SIGSTOP, syscall.SIGQUIT)
 	go func(ch <-chan os.Signal) {
-		sig := <-ch
-		ErrorLog.Print("signal recieved " + sig.String())
-		s.Shutdown()
+        switch sig := <-ch; sig {
+        case syscall.SIGINT: // Ctrl+C
+            OpenAccessLog(AccessLogPath)
+            OpenErrorLog(ErrorLogPath)
+        case syscall.SIGSTOP: // Ctrl+Z
+        default:
+		    ErrorLog.Print("signal recieved " + sig.String())
+		    s.Shutdown()
+        }
 	}(sch)
 
 	// log.Print("start serving at ", s.addr, "...\n")
@@ -192,6 +198,7 @@ func (s *Server) Shutdown() {
 
 	// notify conns
 	s.Lock()
+    defer s.Unlock()
 	if len(s.conns) > 0 {
 		// log.Print("have ", len(s.conns), " active connections")
 		for _, conn := range s.conns {
@@ -199,7 +206,7 @@ func (s *Server) Shutdown() {
 			conn.Shutdown()
 		}
 	}
-	s.Unlock()
+	//s.Unlock()
 }
 
 /*

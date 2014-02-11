@@ -401,7 +401,7 @@ func writeLine(w io.Writer, s string) {
 	io.WriteString(w, "\r\n")
 }
 
-func (req *Request) Process(store Storage, stat *Stats) (resp *Response, targets []string, err error) {
+func (req *Request) Process(store DistributeStorage, stat *Stats) (resp *Response, targets []string, err error) {
 	resp = new(Response)
 	resp.noreply = req.NoReply
 
