@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-var conf *string = flag.String("conf", "conf/example.ini", "config path")
+var conf *string = flag.String("conf", "conf/example.yaml", "config path")
 
 //var debug *bool = flag.Bool("debug", false, "debug info")
 var allocLimit *int = flag.Int("alloc", 1024*4, "cmem alloc limit")
