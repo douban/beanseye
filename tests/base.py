@@ -14,7 +14,7 @@ import shutil
 from douban.beansdb import MCStore
 
 def start_svc(cmd):
-    print cmd
+    print "start", cmd
     p = subprocess.Popen(isinstance(cmd, (tuple, list,)) and cmd or shlex.split(cmd) , close_fds=True)
     time.sleep(0.2)
     if p.poll() is not None:
@@ -44,8 +44,10 @@ class BeansdbInstance:
         self.popen = start_svc(self.cmd)
 
     def stop(self):
-        stop_svc(self.popen)
-        self.popen = None
+        print "stop", self.cmd
+        if self.popen:
+            stop_svc(self.popen)
+            self.popen = None
 
     def clean(self):
         if self.popen:
