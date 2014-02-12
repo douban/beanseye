@@ -139,15 +139,18 @@ func (s *Server) Serve() (e error) {
 	signal.Notify(sch, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT,
 		syscall.SIGHUP, syscall.SIGSTOP, syscall.SIGQUIT)
 	go func(ch <-chan os.Signal) {
-        switch sig := <-ch; sig {
-        case syscall.SIGINT: // Ctrl+C
-            OpenAccessLog(AccessLogPath)
-            OpenErrorLog(ErrorLogPath)
-        default:
-		    ErrorLog.Print("signal recieved " + sig.String())
-            AccessFd.Close()
-            ErrorFd.Close()
-		    s.Shutdown()
+        for {
+            sig := <-ch
+            if sig == syscall.SIGINT {  // Ctrl+C
+                OpenAccessLog(AccessLogPath)
+                OpenErrorLog(ErrorLogPath)
+            } else {
+                ErrorLog.Print("signal recieved " + sig.String())
+                AccessFd.Close()
+                ErrorFd.Close()
+                s.Shutdown()
+                break
+            }
         }
 	}(sch)
 
@@ -195,7 +198,7 @@ func (s *Server) Shutdown() {
 	s.stop = true
 
 	// try to connect
-	// net.Dial("tcp", s.addr)
+	net.Dial("tcp", s.addr)
 
 	// notify conns
 	s.Lock()
