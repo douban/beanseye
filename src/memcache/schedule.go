@@ -192,6 +192,11 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
 		}
 		no++
 	}
+
+    // set c.stats according to c.buckets
+    for b := 0; b < bs; b++ {
+        c.stats[b] = make([]float64, len(c.buckets[b]))
+    }
 	// record the main nodes in main_buckets
 	c.main_nodes = make([]*bit.Set, bs)
 	for i, bucket := range c.buckets {
