@@ -14,3 +14,6 @@ install:dep
 
 test:
 	go test memcache
+
+debug:dep
+	go install -gcflags "-N -l" proxy
