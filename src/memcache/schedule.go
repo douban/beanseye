@@ -205,6 +205,7 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
 
 	c.hashMethod = fnv1a1
     c.bucketWidth = calBitWidth(bs)
+
 	go c.procFeedback()
 	go func() {
 		for {
@@ -253,6 +254,7 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_nod
 	bucket_len := len(c.buckets[index])
 	bucket := make([]int, bucket_len)
 	copy(bucket, c.buckets[index])
+
 	k := 0
 	// find the position
 	for k = 0; k < bucket_len; k++ {
@@ -272,7 +274,7 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_nod
 			k--
 		}
 	} else {
-		for k < bucket_len && stats[bucket[k]] < stats[bucket[k+1]] {
+		for k < bucket_len -1 && stats[bucket[k]] < stats[bucket[k+1]] {
 			if k == 2 {
 				if !change_main_node {
 					break
