@@ -71,18 +71,27 @@ class Test2(TestBeanseyeBase):
         self._assert_data(self.backend3_addr, 'key1', data1)
         self._assert_data(self.backend4_addr, 'key1', None, "temporary node should not have the key when all primary nodes is good")
 
-        print "down backend2, proxy.get should be ok"
+        print "down backend1 and backend2, proxy.get should be ok"
+        self.backend1.stop()
         self.backend2.stop()
         proxy.delete('key2')
         proxy.set('key2', data2)
         self.assertEqual(proxy.get('key2'), data2)
         self._assert_data(self.proxy_addr, 'key2', data2)
-        self._assert_data(self.backend1_addr, 'key2', data2)
         with self.assertRaises(Exception) as exc:
+            self._assert_data(self.backend1_addr, 'key2', data2)
             MCStore(self.backend2_addr).get('key2')
         self._assert_data(self.backend3_addr, 'key2', data2)
-        #"temporary node should have the key when primary nodes < 3"
+        #"temporary node should have the key when primary nodes < 2"
         self._assert_data(self.backend4_addr, 'key2', data2)
+        
+        print "start backend2, (backend1 still down), test delete"
+        self.backend2.start()
+        proxy.delete('key2')
+        self._assert_data(self.proxy_addr, 'key2', None)
+        self._assert_data(self.backend2_addr, 'key2', None)
+        self._assert_data(self.backend3_addr, 'key2', None)
+        self._assert_data(self.backend4_addr, 'key2', None)
 
 
 
