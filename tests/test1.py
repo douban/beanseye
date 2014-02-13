@@ -6,7 +6,7 @@ import sys
 import time
 from base import TestBeanseyeBase, BeansdbInstance, random_string, stop_svc
 import unittest
-from douban.beansdb import BeansDBProxy
+from douban.beansdb import BeansDBProxy, MCStore
 
 
 class Test1(TestBeanseyeBase):
@@ -24,6 +24,7 @@ class Test1(TestBeanseyeBase):
         self.backend1.start()
         self.backend2.start()
         self.backend3.start()
+        # start 3 backend, no additional temporary node
         proxy_conf = {
                 'servers': [
                     self.backend1_addr + ' F E D C B A 9 8 7 6 5 4 3 2 1 0',
@@ -54,13 +55,23 @@ class Test1(TestBeanseyeBase):
         self._assert_data(self.backend1_addr, 'key1', data1)
         self._assert_data(self.backend2_addr, 'key1', data1)
         self._assert_data(self.backend3_addr, 'key1', data1)
-        print "down backend1"
+        print "down backend2, proxy.get should be ok"
         self.backend2.stop()
         proxy.set('key2', data2)
         self._assert_data(self.proxy_addr, 'key2', data2)
-        self._assert_data(self.backend1_addr, 'key2', data1)
-        self._assert_data(self.backend2_addr, 'key2', None)
-        self._assert_data(self.backend3_addr, 'key2', data1)
+        self._assert_data(self.backend1_addr, 'key2', data2)
+        with self.assertRaises(Exception) as exc:
+            MCStore(self.backend2_addr).get('key2')
+        self._assert_data(self.backend3_addr, 'key2', data2)
+        self.assertEqual(proxy.get('key2'), data2)
+        print "down backend1, proxy.get/set should fail"
+        self.backend1.stop()
+        self.assertEqual(proxy.get('key1'), data1)
+        with self.assertRaises(Exception) as exc:
+            MCStore(self.backend1_addr).get('key2')
+            MCStore(self.backend2_addr).get('key2')
+        with self.assertRaises(Exception) as exc:
+            proxy.set('key2', data2)
 
 
 
