@@ -68,6 +68,9 @@ class TestBeanseyeBase(unittest.TestCase):
 
     data_base_path = os.path.join("/tmp", "beanseye_test")
     code_base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    #NOTE: should override accesslog in tests
+#    accesslog = os.path.join(self.data_base_path, 'beansproxy.log')
+#    errorlog = os.path.join(self.data_base_path, 'beansproxy.log')
 
 
     def _init_dir(self):
@@ -83,16 +86,16 @@ class TestBeanseyeBase(unittest.TestCase):
 
     def _gen_proxy_config(self, config):
         config['basepath'] = self.code_base_path
-        config['accesslog'] = os.path.join(self.data_base_path, 'beansproxy.log')
-        config['errorlog'] = os.path.join(self.data_base_path, 'beansproxy_error.log')
+        config['accesslog'] = self.accesslog
+        config['errorlog'] = self.errorlog
         config_file = os.path.join(self.data_base_path, 'beanseye_conf.yaml')
         with open(config_file, 'w') as f:
             yaml.safe_dump(config, f, default_flow_style=False, canonical=False)
         return config_file
 
-    def _assert_data(self, addr, key, data):
+    def _assert_data(self, addr, key, data, mesg=None):
         store = MCStore(addr) 
-        self.assertEqual(store.get(key), data)
+        self.assertEqual(store.get(key), data, mesg)
 
         
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 :
