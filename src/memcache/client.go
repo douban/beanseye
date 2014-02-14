@@ -166,12 +166,12 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
 			break
 		}
 	}
-	if suc == 0 {
+	if suc < c.W {
 		ok = false
 		final_err = errors.New("write failed")
 		return
 	}
-	ok = (suc >= c.W)
+	ok = true
 	return
 }
 
@@ -187,12 +187,12 @@ func (c *Client) Append(key string, value []byte) (ok bool, targets []string, fi
 			break
 		}
 	}
-	if suc == 0 {
+	if suc < c.W {
 		ok = false
 		final_err = errors.New("write failed")
 		return
 	}
-	ok = (suc >= c.W)
+    ok = true
 	return
 }
 
@@ -237,14 +237,16 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
 			targets = append(targets, host.Addr)
 		}
 		if suc >= c.N {
-			break
+            break
 		}
 	}
 	if suc > 0 || err_count < 2 {
 		// if success at least one, or not failed twice
-		err = nil
-	}
-	r = (suc >= c.W)
+        err = nil
+        r = true
+	} else {
+	    r = false
+    }
 	//return suc >= c.W, err
 	return
 }
