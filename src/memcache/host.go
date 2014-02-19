@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
+	//"log"
 	"net"
 	"strconv"
 	"strings"
@@ -96,7 +96,7 @@ func (host *Host) execute(req *Request) (resp *Response, err error) {
 
 	err = req.Write(conn)
 	if err != nil {
-		log.Print(host.Addr, " write request failed:", err)
+		ErrorLog.Print(host.Addr, " write request failed:", err)
 		conn.Close()
 		return
 	}
@@ -111,13 +111,13 @@ func (host *Host) execute(req *Request) (resp *Response, err error) {
 	reader := bufio.NewReader(conn)
 	err = resp.Read(reader)
 	if err != nil {
-		log.Print(host.Addr, " read response failed:", err)
+		ErrorLog.Print(host.Addr, " read response failed:", err)
 		conn.Close()
 		return
 	}
 
 	if err := req.Check(resp); err != nil {
-		log.Print(host.Addr, " unexpected response", req, resp, err)
+		ErrorLog.Print(host.Addr, " unexpected response", req, resp, err)
 		conn.Close()
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp 
 	case <-done:
 	case <-time.After(timeout):
 		err = fmt.Errorf("request %v timeout", req)
-		log.Print(host.Addr, " request to host timeout", err)
+		ErrorLog.Print(host.Addr, " request to host timeout", err)
 	}
 	return
 }
