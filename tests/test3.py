@@ -63,18 +63,25 @@ class Test3(TestBeanseyeBase):
         key3 = 'key3'
         i = 0
         store4 = MCStore(self.backend4_addr)
-        while i < 10000:
+        ts_start = time.time()
+        fallbacked = False
+        while i < 20000:
             data3 = random_string(10)
             i += 1
-            proxy.get(key3)
             proxy.set(key3, data3)
+            self.assertEqual(proxy.get(key3), data3)
             data3_ = store4.get(key3)
             if data3_ is None:
                 print "store4 get nothing yet", i
             else:
                 print "fallbacked to store4 after %s tries" % (i)
+                fallbacked = True
                 self.assertEqual(data3_, data3)
                 break
+        ts_stop = time.time()
+        if not fallbacked:
+            print "still not fallback to store4"
+        print "%s seconds passed" % (ts_stop - ts_start)
 
 
     def tearDown(self):
