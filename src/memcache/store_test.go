@@ -6,11 +6,91 @@ import (
 	"testing"
 )
 
+func testDistributeStore(t *testing.T, dclient DistributeStorage) {
+    key := "dtest"
+    r, hs, _ := dclient.Get(key)
+    if r != nil && len(hs) > 0 {
+        t.Errorf("get should return nil and []")
+    }
+    // set
+    v := []byte("value")
+    flag := 2
+    ok, hs, _ := dclient.Set(key, &Item{Body: v, Flag: flag}, false)
+    if !ok || len(hs) == 0 {
+        t.Errorf("set failed")
+    }
+    v2, h, _ := dclient.Get(key)
+    if v2 == nil || !bytes.Equal(v, v2.Body) || len(h) == 0 {
+		t.Errorf("should return same value and a get host")
+    } else {
+        in_host := false
+        for _, set_h := range hs {
+            if set_h == h {
+                in_host = true
+                break
+            }
+        }
+        if !in_host {
+            t.Errorf("get should from set hosts")
+        }
+    }
+    if v2.Flag != flag {
+		t.Errorf("should return flag 2")
+    }
+    // set with noreply
+    v = []byte("value 2")
+    flag = 3
+    key2 := "test2"
+    ok, hs, _ = dclient.Set(key2, &Item{Body: v, Flag: flag}, true)
+    if !ok || len(hs) == 0 {
+        t.Errorf("set with ply failed")
+    }
+    v2, h, _ = dclient.Get(key2)
+    if v2 == nil || !bytes.Equal(v, v2.Body) || len(h) == 0 {
+        t.Errorf("should return same value")
+    } else {
+        in_host := false
+        for _, set_h := range hs {
+            if set_h == h {
+                in_host = true
+                break
+            }
+        }
+        if !in_host {
+            t.Errorf("get should from set hosts")
+        }
+    }
+    // get_multi
+    items, hhs, _ := dclient.GetMulti([]string{"test", "test", "test2", "test3"})
+    if len(items) != 2 || len(hhs) == 0 {
+		t.Errorf("get_multi should return 2 values, but got %d", len(items))
+    }
+    keys := make([]string, 102)
+    for i := 0; i < 100; i++ {
+        keys[i] = fmt.Sprintf("__t%d", i)
+        dclient.Set(keys[i], &Item{Body: v}, true)
+    }
+    items, hhs, _ = dclient.GetMulti(keys)
+    if len(items) != 100 || len(hhs) == 0 {
+		t.Errorf("get_multi should return 100 values, but got %d", len(items))
+    }
+    // get large obj
+    v = make([]byte, 1024*1000)
+	if ok, hhs, _ := dclient.Set("test_large", &Item{Body: v, Flag: flag}, false);!ok || len(hhs) == 0 {
+		t.Errorf("set large value failed")
+	}
+    v2, _ = dclient.Get("test_large")
+    if v2 == nil || !bytes.Equal(v, v2.Body) {
+        t.Errorf("should return same large value")
+    }
+    // append
+}
+
 func testStore(t *testing.T, client Storage) {
 	key := "test"
 	r, _ := client.Get("test")
 	if r != nil {
-		t.Errorf("get should return []")
+		t.Errorf("get should return nil")
 	}
 	// set
 	v := []byte("value")

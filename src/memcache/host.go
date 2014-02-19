@@ -20,6 +20,7 @@ type Host struct {
 	Addr     string
 	nextDial time.Time
 	conns    chan net.Conn
+	offset   int
 }
 
 func NewHost(addr string) *Host {

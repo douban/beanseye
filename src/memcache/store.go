@@ -7,6 +7,16 @@ import (
 )
 
 type Storage interface {
+	Get(key string) (*Item, error)
+	GetMulti(keys []string) (map[string]*Item, error)
+	Set(key string, item *Item, noreply bool) (bool, error)
+	Append(key string, value []byte) (bool, error)
+	Incr(key string, value int) (int, error)
+	Delete(key string) (bool, error)
+	Len() int
+}
+
+type DistributeStorage interface {
 	Get(key string) (*Item, []string, error)
 	GetMulti(keys []string) (map[string]*Item, []string, error)
 	Set(key string, item *Item, noreply bool) (bool, []string, error)

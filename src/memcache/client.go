@@ -25,12 +25,12 @@ type Client struct {
 	success   chan bool
 }
 
-func NewClient(sch Scheduler) (c *Client) {
+func NewClient(sch Scheduler, N, W, R int) (c *Client) {
 	c = new(Client)
 	c.scheduler = sch
-	c.N = 3
-	c.W = 2
-	c.R = 1
+	c.N = N
+	c.W = W
+	c.R = R
 	return c
 }
 
@@ -41,7 +41,7 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 		st := time.Now()
 		r, err = host.Get(key)
 		if err != nil {
-			c.scheduler.Feedback(host, key, -10, false)
+			c.scheduler.Feedback(host, key, -10, true)
 		} else {
 			cnt++
 			if r != nil {
@@ -81,7 +81,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
 		r, er := host.GetMulti(keys)
 		if er != nil { // failed
 			err = er
-			c.scheduler.Feedback(host, keys[0], -10, false)
+			c.scheduler.Feedback(host, keys[0], -10, true)
 		} else {
 			suc += 1
 			targets = append(targets, host.Addr)
@@ -166,12 +166,12 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
 			break
 		}
 	}
-	if suc == 0 {
+	if suc < c.W {
 		ok = false
 		final_err = errors.New("write failed")
 		return
 	}
-	ok = (suc >= c.W)
+	ok = true
 	return
 }
 
@@ -187,12 +187,12 @@ func (c *Client) Append(key string, value []byte) (ok bool, targets []string, fi
 			break
 		}
 	}
-	if suc == 0 {
+	if suc < c.W {
 		ok = false
 		final_err = errors.New("write failed")
 		return
 	}
-	ok = (suc >= c.W)
+    ok = true
 	return
 }
 
@@ -226,22 +226,27 @@ func (c *Client) Incr(key string, value int) (result int, targets []string, err 
 
 func (c *Client) Delete(key string) (r bool, targets []string, err error) {
 	suc := 0
+	err_count := 0
 	for _, host := range c.scheduler.GetHostsByKey(key) {
 		ok, er := host.Delete(key)
-		if er != nil {
+		if er != nil { // means in err occurs in the right bucket
 			err = er
+			err_count++
 		} else if ok {
 			suc++
 			targets = append(targets, host.Addr)
 		}
 		if suc >= c.N {
-			break
+            break
 		}
 	}
-	if suc > 0 {
-		err = nil
-	}
-	r = (suc >= c.W)
+	if suc > 0 || err_count < 2 {
+		// if success at least one, or not failed twice
+        err = nil
+        r = true
+	} else {
+	    r = false
+    }
 	//return suc >= c.W, err
 	return
 }

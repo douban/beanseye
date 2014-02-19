@@ -1,0 +1,18 @@
+servers:
+- localhost:7900 0 1 2
+- 127.0.0.1:7900 A -1 B
+port: 7905
+webport: 7908
+threads: 8
+n: 3
+w: 2
+r: 1
+buckets: 16
+slow: 200
+listen: 0.0.0.0
+proxies:
+- localhost:7905
+accesslog: /log/beansproxy/beansproxy.log
+errorlog: /log/beansproxy/beansproxy_error.log
+basepath: /var/lib/beanseye
+readonly: false
