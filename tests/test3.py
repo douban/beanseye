@@ -17,8 +17,8 @@ class Test3(TestBeanseyeBase):
     backend4_addr = 'localhost:57904'
 
     data_base_path = os.path.join("/tmp", "beanseye_test")
-    accesslog = os.path.join(data_base_path, 'beansproxy_test2.log')
-    errorlog = os.path.join(data_base_path, 'beansproxy_error_test2.log')
+    accesslog = os.path.join(data_base_path, 'beansproxy_test3.log')
+    errorlog = os.path.join(data_base_path, 'beansproxy_error_test3.log')
 
     def setUp(self):
         self._init_dir()
@@ -60,6 +60,7 @@ class Test3(TestBeanseyeBase):
     def test3(self):
         """ test wether will fallback only down 1 primary node """
         proxy = BeansDBProxy([self.proxy_addr])
+        self.backend3.stop()
         key3 = 'key3'
         i = 0
         store4 = MCStore(self.backend4_addr)
