@@ -17,12 +17,12 @@ type RClient struct {
 	success   chan bool
 }
 
-func NewRClient(sch Scheduler) (c *RClient) {
+func NewRClient(sch Scheduler, N, W, R int) (c *RClient) {
 	c = new(RClient)
 	c.scheduler = sch
-	c.N = 3
-	c.W = 2
-	c.R = 1
+	c.N = N
+	c.W = W
+	c.R = R
 	c.success = make(chan bool, 1)
 	return c
 }

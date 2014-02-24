@@ -3,7 +3,7 @@ package memcache
 import (
 	"bytes"
 	"fmt"
-	"log"
+	"github.com/hurricane1026/go-bit/bit"
 	"math"
 	"sort"
 	"strconv"
@@ -147,44 +147,165 @@ func (c *ConsistantHashScheduler) DivideKeysByBucket(keys []string) [][]string {
 
 // route request by configure by hand
 type ManualScheduler struct {
-	hosts      map[string]*Host
-	buckets    [][]string
+	N          int
+	hosts      []*Host
+	buckets    [][]int
+    bucketWidth int
+	stats      [][]float64
 	hashMethod HashMethod
+	feedChan   chan *Feedback
+	main_nodes []*bit.Set
 }
 
-func NewManualScheduler(config map[string][]int) *ManualScheduler {
+// the string is a Hex int string, if it start with -, it means serve the bucket as a backup
+func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler {
+    defer func() {
+        if r := recover(); r != nil {
+            ErrorLog.Fatalln("NewManualScheduler panic, maybe node's supporting bucket more than buckets number")
+        }
+    }()
 	c := new(ManualScheduler)
-	count := 1
-	c.hosts = make(map[string]*Host)
-	for addr, bs := range config {
-		c.hosts[addr] = NewHost(addr)
-		for _, b := range bs {
-			if b >= count {
-				count = b + 1
+	c.hosts = make([]*Host, len(config))
+	c.buckets = make([][]int, bs)
+	c.stats = make([][]float64, bs)
+	c.N = n
+
+	no := 0
+	for addr, serve_to := range config {
+		host := NewHost(addr)
+		host.offset = no
+		c.hosts[no] = host
+		for _, bucket_str := range serve_to {
+			if strings.HasPrefix(bucket_str, "-") {
+				if bucket, e := strconv.ParseInt(bucket_str[1:], 16, 16); e == nil {
+					c.buckets[bucket] = append(c.buckets[bucket], no)
+				} else {
+					ErrorLog.Println("Parse serving bucket config failed, it was not digital")
+				}
+			} else {
+				if bucket, e := strconv.ParseInt(bucket_str, 16, 16); e == nil {
+					c.buckets[bucket] = append([]int{no}, c.buckets[bucket]...)
+				} else {
+					ErrorLog.Println("Parse serving bucket config failed, it was not digital")
+				}
 			}
 		}
+		no++
 	}
-	// dispatch
-	c.buckets = make([][]string, count)
-	for addr, bs := range config {
-		for _, bi := range bs {
-			c.buckets[bi] = append(c.buckets[bi], addr)
-		}
+
+    // set c.stats according to c.buckets
+    for b := 0; b < bs; b++ {
+        c.stats[b] = make([]float64, len(c.buckets[b]))
+        for i := 0; i < c.N; i++ {
+            c.stats[b][i] = 10.0
+        }
+    }
+	// record the main nodes in main_buckets
+	c.main_nodes = make([]*bit.Set, bs)
+	for i, bucket := range c.buckets {
+		c.main_nodes[i] = bit.New(bucket[:c.N]...)
 	}
+
 	c.hashMethod = fnv1a1
+    c.bucketWidth = calBitWidth(bs)
+
+	go c.procFeedback()
+	go func() {
+		for {
+			c.try_recovery()
+			time.Sleep(10 * 1e9)
+		}
+	}()
 	return c
 }
 
-func (c *ManualScheduler) GetHostsByKey(key string) (host []*Host) {
-	i := getBucketByKey(c.hashMethod, len(c.buckets), key)
-
-	N := len(c.buckets[i])
-	hs := make([]*Host, N)
-	rnd := int(c.hashMethod([]byte(key)) % uint32(N))
-	for j, addr := range c.buckets[i] {
-		hs[(j+rnd)%N] = c.hosts[addr]
+func (c *ManualScheduler) try_recovery() {
+    smth_down := false
+	for i, bucket := range c.buckets {
+		curr := bit.New(bucket[:c.N]...)
+		down_node := c.main_nodes[i].AndNot(curr)
+		if down_node.IsEmpty() {
+			// no down nodes, just skip
+			continue
+		} else {
+            if !smth_down {
+                ErrorLog.Println("=========================================================")
+                ErrorLog.Println("current buckets:")
+                ErrorLog.Println(c.buckets)
+                ErrorLog.Println("=========================================================")
+                smth_down = true
+            }
+			for _, node := range down_node.Slice() {
+				host := c.hosts[node]
+				if _, err := host.Get("@"); err == nil {
+					// no err now, swap to main portion
+					c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 20, incheck: true}
+				}
+			}
+		}
 	}
-	return hs
+}
+
+func (c *ManualScheduler) procFeedback() {
+	c.feedChan = make(chan *Feedback, 256)
+	for {
+		fb := <-c.feedChan
+		c.feedback(fb.hostIndex, fb.bucketIndex, fb.adjust, fb.incheck)
+	}
+}
+
+func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_node bool) {
+	stats := c.stats[index]
+	old := stats[i]
+	if adjust >= 0 {
+		stats[i] = (stats[i] + adjust) / 2
+	} else {
+		stats[i] += adjust
+	}
+	bucket_len := len(c.buckets[index])
+	bucket := make([]int, bucket_len)
+	copy(bucket, c.buckets[index])
+
+	k := 0
+	// find the position
+	for k = 0; k < bucket_len; k++ {
+		if bucket[k] == i {
+			break
+		}
+	}
+
+	if stats[i]-old > 0 {
+		for k > 0 && stats[bucket[k]] > stats[bucket[k-1]] {
+			if k == 3 {
+				if !change_main_node {
+					break
+				}
+			}
+			swap(bucket, k, k-1)
+			k--
+		}
+	} else {
+		for k < bucket_len -1 && stats[bucket[k]] < stats[bucket[k+1]] {
+			if k == 2 {
+				if !change_main_node {
+					break
+				}
+			}
+			swap(bucket, k, k+1)
+			k++
+		}
+	}
+	// set it to origin
+	c.buckets[index] = bucket
+}
+
+func (c *ManualScheduler) GetHostsByKey(key string) (host []*Host) {
+	i := getBucketByKey(c.hashMethod, c.bucketWidth, key)
+	host = make([]*Host, len(c.buckets[i]))
+	for j, addr := range c.buckets[i] {
+		host[j] = c.hosts[addr]
+	}
+	return
 }
 
 func (c *ManualScheduler) DivideKeysByBucket(keys []string) [][]string {
@@ -192,17 +313,18 @@ func (c *ManualScheduler) DivideKeysByBucket(keys []string) [][]string {
 }
 
 func (c *ManualScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {
-
+	index := getBucketByKey(c.hashMethod, c.bucketWidth, key)
+	c.feedChan <- &Feedback{hostIndex: host.offset, bucketIndex: index, adjust: adjust, incheck: in_check}
 }
 
 func (c *ManualScheduler) Stats() map[string][]float64 {
 	r := make(map[string][]float64, len(c.hosts))
-	for addr, _ := range c.hosts {
-		r[addr] = make([]float64, len(c.buckets))
+	for _, h := range c.hosts {
+		r[h.Addr] = make([]float64, len(c.buckets))
 	}
-	for i, hs := range c.buckets {
-		for _, h := range hs {
-			r[h][i] = 1
+	for i, st := range c.stats {
+		for j, w := range st {
+			r[c.hosts[j].Addr][i] = w
 		}
 	}
 	return r
@@ -224,6 +346,7 @@ type AutoScheduler struct {
 	last_check time.Time
 	hashMethod HashMethod
 	feedChan   chan *Feedback
+    bucketWidth int
 }
 
 func NewAutoScheduler(config []string, bs int) *AutoScheduler {
@@ -244,6 +367,7 @@ func NewAutoScheduler(config []string, bs int) *AutoScheduler {
 		}
 	}
 	c.hashMethod = fnv1a1
+    c.bucketWidth = calBitWidth(c.n)
 	go c.procFeedback()
 
 	c.check()
@@ -256,12 +380,16 @@ func NewAutoScheduler(config []string, bs int) *AutoScheduler {
 	return c
 }
 
-func getBucketByKey(hash_func HashMethod, bs int, key string) int {
-	bucketWidth := 0
-	for bs > 1 {
-		bucketWidth++
-		bs /= 2
-	}
+func calBitWidth(number int) int {
+    width := 0
+    for number > 1 {
+        width++
+        number /= 2
+    }
+    return width
+}
+
+func getBucketByKey(hash_func HashMethod, bucketWidth int, key string) int {
 	if len(key) > bucketWidth/4 && key[0] == '@' {
 		return hextoi(key[1 : bucketWidth/4+1])
 	}
@@ -273,7 +401,7 @@ func getBucketByKey(hash_func HashMethod, bs int, key string) int {
 }
 
 func (c *AutoScheduler) GetHostsByKey(key string) []*Host {
-	i := getBucketByKey(c.hashMethod, len(c.buckets), key)
+	i := getBucketByKey(c.hashMethod, c.bucketWidth, key)
 	//host_ids := c.GetBucketSnapshot(i)
 	host_ids := c.buckets[i]
 	cnt := len(host_ids)
@@ -286,8 +414,9 @@ func (c *AutoScheduler) GetHostsByKey(key string) []*Host {
 
 func divideKeysByBucket(hash_func HashMethod, bs int, keys []string) [][]string {
 	rs := make([][]string, bs)
+    bw := calBitWidth(bs)
 	for _, key := range keys {
-		b := getBucketByKey(hash_func, bs, key)
+		b := getBucketByKey(hash_func, bw, key)
 		rs[b] = append(rs[b], key)
 	}
 	return rs
@@ -339,7 +468,7 @@ func (c *AutoScheduler) procFeedback() {
 }
 
 func (c *AutoScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {
-	index := getBucketByKey(c.hashMethod, len(c.buckets), key)
+	index := getBucketByKey(c.hashMethod, c.bucketWidth, key)
 	i := c.hostIndex(host)
 	if i < 0 {
 		return
@@ -419,21 +548,21 @@ func (c *AutoScheduler) listHost(host *Host, dir string) {
 }
 
 func (c *AutoScheduler) Showbuckets() {
-	log.Println("--- Buckets ---")
+	ErrorLog.Println("--- Buckets ---")
 	for i, b := range c.buckets {
-		log.Println("bucket ", i, " :")
+		ErrorLog.Println("bucket ", i, " :")
 		for _, id := range b {
 			host := c.hosts[id]
-			log.Println(host.Addr)
+			ErrorLog.Println(host.Addr)
 		}
-		log.Println("+++++++++++++++++++++")
+		ErrorLog.Println("+++++++++++++++++++++")
 	}
 }
 
 func (c *AutoScheduler) check() {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Print("error while check()", e)
+			ErrorLog.Print("error while check()", e)
 		}
 	}()
 	bs := len(c.buckets)

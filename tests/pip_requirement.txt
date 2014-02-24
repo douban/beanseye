@@ -1,0 +1,3 @@
+PyYAML
+python-libmemcached
+-e git+http://code.dapps.douban.com/douban-corelib.git#egg=DoubanCoreLib-dev
