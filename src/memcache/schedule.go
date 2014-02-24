@@ -196,6 +196,9 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
     // set c.stats according to c.buckets
     for b := 0; b < bs; b++ {
         c.stats[b] = make([]float64, len(c.buckets[b]))
+        for i := 0; i < c.N; i++ {
+            c.stats[b][i] = 10.0
+        }
     }
 	// record the main nodes in main_buckets
 	c.main_nodes = make([]*bit.Set, bs)
@@ -217,6 +220,7 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
 }
 
 func (c *ManualScheduler) try_recovery() {
+    smth_down := false
 	for i, bucket := range c.buckets {
 		curr := bit.New(bucket[:c.N]...)
 		down_node := c.main_nodes[i].AndNot(curr)
@@ -224,6 +228,13 @@ func (c *ManualScheduler) try_recovery() {
 			// no down nodes, just skip
 			continue
 		} else {
+            if !smth_down {
+                ErrorLog.Println("=========================================================")
+                ErrorLog.Println("current buckets:")
+                ErrorLog.Println(c.buckets)
+                ErrorLog.Println("=========================================================")
+                smth_down = true
+            }
 			for _, node := range down_node.Slice() {
 				host := c.hosts[node]
 				if _, err := host.Get("@"); err == nil {

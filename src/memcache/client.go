@@ -41,15 +41,12 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 		st := time.Now()
 		r, err = host.Get(key)
 		if err != nil {
-			c.scheduler.Feedback(host, key, -10, true)
+			c.scheduler.Feedback(host, key, -5, true)
 		} else {
 			cnt++
 			if r != nil {
 				t := float64(time.Now().Sub(st)) / 1e9
-				c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t), false)
-				for j := 0; j < i; j++ {
-					c.scheduler.Feedback(hosts[j], key, -1, false)
-				}
+				c.scheduler.Feedback(host, key, 1-float64(math.Sqrt(t)*t), false)
 				// got the right rval
 				targets = []string{host.Addr}
 				err = nil
@@ -60,8 +57,8 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 		if cnt >= c.R && i+1 >= c.N {
 			// because hosts are sorted
 			err = nil
-			for _, fail_host := range hosts[:3] {
-				targets = append(targets, fail_host.Addr)
+			for _, success_host := range hosts[:3] {
+				targets = append(targets, success_host.Addr)
 			}
 			// because no item gotten
 			break
@@ -88,7 +85,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
 		}
 
 		t := float64(time.Now().Sub(st)) / 1e9
-		c.scheduler.Feedback(host, keys[0], -float64(math.Sqrt(t)*t), false)
+		c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t), false)
 		for k, v := range r {
 			rs[k] = v
 		}
@@ -159,7 +156,7 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
 			suc++
 			targets = append(targets, host.Addr)
 		} else {
-			c.scheduler.Feedback(host, key, -2, false)
+			c.scheduler.Feedback(host, key, -5, true)
 		}
 		if suc >= c.W && (i+1) >= c.N {
 			// at least try N backends, and succeed W backends
@@ -181,7 +178,9 @@ func (c *Client) Append(key string, value []byte) (ok bool, targets []string, fi
 		if ok, err := host.Append(key, value); err == nil && ok {
 			suc++
 			targets = append(targets, host.Addr)
-		}
+		} else {
+			c.scheduler.Feedback(host, key, -5, true)
+        }
 		if suc >= c.W && (i+1) >= c.N {
 			// at least try N backends, and succeed W backends
 			break
@@ -232,6 +231,7 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
 		if er != nil { // means in err occurs in the right bucket
 			err = er
 			err_count++
+            c.scheduler.Feedback(host, key, -10, true)
 		} else if ok {
 			suc++
 			targets = append(targets, host.Addr)
@@ -240,7 +240,7 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
             break
 		}
 	}
-	if suc > 0 || err_count < 2 {
+	if suc > 0 && err_count < 2 {
 		// if success at least one, or not failed twice
         err = nil
         r = true
