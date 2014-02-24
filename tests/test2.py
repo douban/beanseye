@@ -57,7 +57,7 @@ class Test2(TestBeanseyeBase):
             }
         self.proxy_p = self._start_proxy(proxy_conf)
 
-    def test1(self):
+    def test2(self):
         data1 = random_string(10)
         data2 = random_string(10)
         time.sleep(1)
@@ -85,8 +85,8 @@ class Test2(TestBeanseyeBase):
         #"temporary node should have the key when primary nodes < 2"
         self._assert_data(self.backend4_addr, 'key2', data2)
         print "test delete under bad sistuation, will raise error according to current behavior"
-#        with self.assertRaises(Exception) as exc:
-        proxy.delete('key2')
+        with self.assertRaises(Exception) as exc:
+            proxy.delete('key2')
         self._assert_data(self.backend3_addr, 'key2', None)
         self._assert_data(self.backend4_addr, 'key2', None)
 

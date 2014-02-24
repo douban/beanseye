@@ -60,7 +60,7 @@ class Test3(TestBeanseyeBase):
     def test3(self):
         """ test wether will fallback only down 1 primary node """
         proxy = BeansDBProxy([self.proxy_addr])
-        self.backend3.stop()
+        self.backend1.stop()
         key3 = 'key3'
         i = 0
         store4 = MCStore(self.backend4_addr)
@@ -73,7 +73,7 @@ class Test3(TestBeanseyeBase):
             self.assertEqual(proxy.get(key3), data3)
             data3_ = store4.get(key3)
             if data3_ is None:
-                print "store4 get nothing yet", i
+                print "store4 get nothing yet, round=", i
             else:
                 print "fallbacked to store4 after %s tries" % (i)
                 fallbacked = True
@@ -81,8 +81,32 @@ class Test3(TestBeanseyeBase):
                 break
         ts_stop = time.time()
         if not fallbacked:
-            print "still not fallback to store4"
+            self.fail("still not fallback to backend 4")
         print "%s seconds passed" % (ts_stop - ts_start)
+        self.backend1.start()
+        self.assert_(proxy.exists("key3"))
+        store1 = MCStore(self.backend1_addr)
+        self.assert_(store1.get("key3") is None)
+        data3 = random_string(10)
+        ts_recover_start = time.time()
+        i = 0
+        recovered = False
+        while i < 20000:
+            #data3 = random_string(10)
+            i += 1
+            proxy.set(key3, data3)
+            self.assertEqual(proxy.get(key3), data3)
+            data3_ = store1.get(key3)
+            if data3_ is None:
+                print "store1 get nothing yet, round=", i
+            else:
+                print "recover to store1 after %s tries, %s sec" % (i, time.time() - ts_recover_start)
+                recovered = True
+                self.assertEqual(data3_, data3)
+                break
+        if not recovered:
+            self.fail("still not fallback to backend 1")
+        
 
 
     def tearDown(self):
