@@ -194,12 +194,20 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
 	}
 
     // set c.stats according to c.buckets
+    /*
     for b := 0; b < bs; b++ {
-        c.stats[b] = make([]float64, len(c.buckets[b]))
-        for i := 0; i < c.N; i++ {
-            c.stats[b][i] = 10.0
+        c.stats[b] = make([]float64, len(c.hosts))
+        // set main server's stat to be 10.0
+    }
+    */
+    for i, bucket := range c.buckets {
+        c.stats[i] = make([]float64, len(c.hosts))
+        // set main server's stat to be 10.0
+        for _, main_node_offset := range bucket[:c.N] {
+            c.stats[i][main_node_offset] = 10.0
         }
     }
+
 	// record the main nodes in main_buckets
 	c.main_nodes = make([]*bit.Set, bs)
 	for i, bucket := range c.buckets {
