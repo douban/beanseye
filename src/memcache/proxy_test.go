@@ -3,7 +3,6 @@ package memcache
 import (
 	"testing"
 	"time"
-	//    "log"
 	//    "os"
 )
 
