@@ -8,8 +8,7 @@ from base import TestBeanseyeBase, BeansdbInstance, random_string, stop_svc
 import unittest
 from douban.beansdb import BeansDBProxy, MCStore
 
-
-class Test2(TestBeanseyeBase):
+class Test3(TestBeanseyeBase):
 
     proxy_addr = 'localhost:7905'
     backend1_addr = 'localhost:57901'
@@ -18,8 +17,8 @@ class Test2(TestBeanseyeBase):
     backend4_addr = 'localhost:57904'
 
     data_base_path = os.path.join("/tmp", "beanseye_test")
-    accesslog = os.path.join(data_base_path, 'beansproxy_test2.log')
-    errorlog = os.path.join(data_base_path, 'beansproxy_error_test2.log')
+    accesslog = os.path.join(data_base_path, 'beansproxy_test3.log')
+    errorlog = os.path.join(data_base_path, 'beansproxy_error_test3.log')
 
     def setUp(self):
         self._init_dir()
@@ -57,48 +56,57 @@ class Test2(TestBeanseyeBase):
             }
         self.proxy_p = self._start_proxy(proxy_conf)
 
-    def test2(self):
-        data1 = random_string(10)
-        data2 = random_string(10)
-        time.sleep(1)
 
-        print "test normal write"
+    def test3(self):
+        """ test wether will fallback only down 1 primary node """
         proxy = BeansDBProxy([self.proxy_addr])
-        proxy.delete('key1')
-        proxy.set('key1', data1)
-        self._assert_data(self.backend1_addr, 'key1', data1)
-        self._assert_data(self.backend2_addr, 'key1', data1)
-        self._assert_data(self.backend3_addr, 'key1', data1)
-        self._assert_data(self.backend4_addr, 'key1', None, "temporary node should not have the key when all primary nodes is good")
-
-        proxy.delete('key2')
-        print "down backend1 and backend2, proxy.get should be ok"
         self.backend1.stop()
-        self.backend2.stop()
-        proxy.set('key2', data2)
-        self.assertEqual(proxy.get('key2'), data2)
-        self._assert_data(self.proxy_addr, 'key2', data2)
-        with self.assertRaises(Exception) as exc:
-            MCStore(self.backend1_addr).get('key2')
-            MCStore(self.backend2_addr).get('key2')
-        self._assert_data(self.backend3_addr, 'key2', data2)
-        #"temporary node should have the key when primary nodes < 2"
-        self._assert_data(self.backend4_addr, 'key2', data2)
-        print "test delete under bad sistuation, will raise error according to current behavior"
-        with self.assertRaises(Exception) as exc:
-            proxy.delete('key2')
-        self._assert_data(self.backend3_addr, 'key2', None)
-        self._assert_data(self.backend4_addr, 'key2', None)
-
+        key3 = 'key3'
+        i = 0
+        store4 = MCStore(self.backend4_addr)
+        ts_start = time.time()
+        fallbacked = False
+        while i < 20000:
+            data3 = random_string(10)
+            i += 1
+            proxy.set(key3, data3)
+            self.assertEqual(proxy.get(key3), data3)
+            data3_ = store4.get(key3)
+            if data3_ is None:
+                print "store4 get nothing yet, round=", i
+            else:
+                print "fallbacked to store4 after %s tries" % (i)
+                fallbacked = True
+                self.assertEqual(data3_, data3)
+                break
+        ts_stop = time.time()
+        if not fallbacked:
+            self.fail("still not fallback to backend 4")
+        print "%s seconds passed" % (ts_stop - ts_start)
+        self.backend1.start()
+        self.assert_(proxy.exists("key3"))
+        store1 = MCStore(self.backend1_addr)
+        self.assert_(store1.get("key3") is None)
+        data3 = random_string(10)
+        ts_recover_start = time.time()
+        i = 0
+        recovered = False
+        while i < 20000:
+            #data3 = random_string(10)
+            i += 1
+            proxy.set(key3, data3)
+            self.assertEqual(proxy.get(key3), data3)
+            data3_ = store1.get(key3)
+            if data3_ is None:
+                print "store1 get nothing yet, round=", i
+            else:
+                print "recover to store1 after %s tries, %s sec" % (i, time.time() - ts_recover_start)
+                recovered = True
+                self.assertEqual(data3_, data3)
+                break
+        if not recovered:
+            self.fail("still not fallback to backend 1")
         
-        print "start backend2, (backend1 still down), test delete"
-        self.backend2.start()
-        proxy.delete('key2')
-        self._assert_data(self.proxy_addr, 'key2', None)
-        self._assert_data(self.backend2_addr, 'key2', None)
-        self._assert_data(self.backend3_addr, 'key2', None)
-        self._assert_data(self.backend4_addr, 'key2', None)
-
 
 
     def tearDown(self):
@@ -111,10 +119,9 @@ class Test2(TestBeanseyeBase):
         self.backend2.clean()
         self.backend3.clean()
         self.backend4.clean()
-        
+ 
 if __name__ == '__main__':
     unittest.main()
-
 
 
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 :

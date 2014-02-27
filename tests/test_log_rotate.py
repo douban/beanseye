@@ -4,20 +4,23 @@
 import os
 import sys
 import time
+import signal
 from base import TestBeanseyeBase, BeansdbInstance, random_string, stop_svc
 import unittest
 from douban.beansdb import BeansDBProxy, MCStore
 
 
-class Test1(TestBeanseyeBase):
+class TestLogRotate(TestBeanseyeBase):
 
     proxy_addr = 'localhost:7905'
     backend1_addr = 'localhost:57901'
     backend2_addr = 'localhost:57902'
     backend3_addr = 'localhost:57903'
     data_base_path = os.path.join("/tmp", "beanseye_test")
-    accesslog = os.path.join(data_base_path, 'beansproxy_test1.log')
-    errorlog = os.path.join(data_base_path, 'beansproxy_error_test1.log')
+    accesslog = os.path.join(data_base_path, 'beansproxy_testlog.log')
+    accesslog_bak = os.path.join(data_base_path, 'beansproxy_testlog.log_bak')
+    errorlog = os.path.join(data_base_path, 'beansproxy_error_testlog.log')
+    errorlog_bak = os.path.join(data_base_path, 'beansproxy_error_testlog.log_bak')
 
 
     def setUp(self):
@@ -54,7 +57,6 @@ class Test1(TestBeanseyeBase):
 
     def test1(self):
         data1 = random_string(10)
-        data2 = random_string(10)
         time.sleep(1)
 
         print "test normal write"
@@ -66,36 +68,34 @@ class Test1(TestBeanseyeBase):
         self._assert_data(self.backend3_addr, 'key1', data1)
         self.assert_(MCStore(self.backend2_addr).exists('key1'))
 
-        print "down backend2, proxy.get should be ok"
-        self.backend2.stop()
-        proxy.delete('key2')
-        self.assert_(not proxy.exists('key2'))
-        self.assert_(not MCStore(self.backend1_addr).exists('key2'))
-        self.assert_(not MCStore(self.backend3_addr).exists('key2'))
-        proxy.set('key2', data2)
-        self.assertEqual(proxy.get('key2'), data2)
+        print "move log"
+        if os.path.exists(self.accesslog_bak):
+            os.remove(self.accesslog_bak)
+        if os.path.exists(self.errorlog_bak):
+            os.remove(self.errorlog_bak)
+        os.rename(self.accesslog, self.accesslog_bak)
+        os.rename(self.errorlog, self.errorlog_bak)
+        print "write more data to see if new log not exists"
+        data1 = random_string(10)
+        proxy.set('key1', data1)
+        self.assert_(not os.path.exists(self.accesslog))
+        self.assert_(not os.path.exists(self.errorlog))
 
-        self.assert_(proxy.exists('key2'))
-        self.assert_(MCStore(self.backend3_addr).exists('key2'))
-        self.assert_(MCStore(self.backend1_addr).exists('key2'))
-        self._assert_data(self.proxy_addr, 'key2', data2)
-        self._assert_data(self.backend1_addr, 'key2', data2)
-        with self.assertRaises(Exception) as exc:
-            MCStore(self.backend2_addr).get('key2')
+        print "send SIGINT signal, should re-open log file" 
+        os.kill(self.proxy_p.pid, signal.SIGINT)
+        time.sleep(1)
+        s = os.stat(self.accesslog)
+        self.assert_(os.path.exists(self.accesslog))
+        self.assert_(os.path.exists(self.errorlog))
+        print "see if write to new accesslog"
+        proxy.get('key1')
+        time.sleep(1)
+        s_new = os.stat(self.accesslog)
+        print s_new.st_size, s.st_size
+        self.assert_(s_new.st_size > s.st_size)
 
-        self._assert_data(self.backend3_addr, 'key2', data2)
-
-        print "down backend1, proxy.get/set should fail"
-        self.backend1.stop()
-        self.assertEqual(proxy.get('key1'), data1)
-        with self.assertRaises(Exception) as exc:
-            MCStore(self.backend1_addr).get('key2')
-            MCStore(self.backend2_addr).get('key2')
-        with self.assertRaises(Exception) as exc:
-            proxy.set('key2', data2)
-
-
-
+        
+        
 
     def tearDown(self):
         stop_svc(self.proxy_p)
@@ -108,5 +108,7 @@ class Test1(TestBeanseyeBase):
         
 if __name__ == '__main__':
     unittest.main()
+
+
 
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 :
