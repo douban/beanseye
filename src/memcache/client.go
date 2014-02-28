@@ -226,12 +226,14 @@ func (c *Client) Incr(key string, value int) (result int, targets []string, err 
 func (c *Client) Delete(key string) (r bool, targets []string, err error) {
 	suc := 0
 	err_count := 0
-	for _, host := range c.scheduler.GetHostsByKey(key) {
+	for i, host := range c.scheduler.GetHostsByKey(key) {
 		ok, er := host.Delete(key)
 		if er != nil { // means in err occurs in the right bucket
 			err = er
 			err_count++
-            c.scheduler.Feedback(host, key, -10, true)
+            if i < c.N {
+                c.scheduler.Feedback(host, key, -10, true)
+            }
 		} else if ok {
 			suc++
 			targets = append(targets, host.Addr)

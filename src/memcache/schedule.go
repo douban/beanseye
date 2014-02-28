@@ -237,17 +237,22 @@ func (c *ManualScheduler) try_recovery() {
 			continue
 		} else {
             if !smth_down {
-                ErrorLog.Println("current buckets:")
-                ErrorLog.Println(c.buckets)
-                for i, bucket := range c.buckets {
-                    addrs := make([]string, len(bucket))
-                    for j, node := range bucket {
-                        addr := c.hosts[node].Addr
-                        addrs[j] = addr[:strings.Index(addr, ":")]
-                    }
-                    bucket_content := strings.Join(addrs, ", ")
-                    ErrorLog.Printf("Bucket %X: [%s]", i, bucket_content)
+                ErrorLog.Print("downbuckets:")
+                //ErrorLog.Println(c.buckets)
+                addrs := make([]string, len(bucket))
+                for j, node := range bucket {
+                    addr := c.hosts[node].Addr
+                    addrs[j] = addr[:strings.Index(addr, ":")]
                 }
+                bucket_content := strings.Join(addrs, ", ")
+                ErrorLog.Printf("Bucket %X: [%s]", i, bucket_content)
+                downs := down_node.Slice()
+                down_addrs := make([]string, len(downs))
+                for j, h := range downs {
+                    down_addrs[j] = c.hosts[h].Addr
+                }
+                down_content := strings.Join(down_addrs, ", ")
+                ErrorLog.Printf("Down MainNodes: %s", down_content)
                 smth_down = true
             }
 			for _, node := range down_node.Slice() {
