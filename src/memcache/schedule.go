@@ -256,13 +256,25 @@ func (c *ManualScheduler) try_recovery() {
                 ErrorLog.Printf("Down MainNodes: %s", down_content)
                 smth_down = true
             }
+            recovered := 0
 			for _, node := range down_node.Slice() {
 				host := c.hosts[node]
 				if _, err := host.Get("@"); err == nil {
 					// no err now, swap to main portion
-					c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 20, incheck: true}
+                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 20, incheck: true}
+                    recovered++
 				}
 			}
+            // calculate a backup node in the first N
+            backup_node := curr.AndNot(c.main_nodes[i])
+            for _, node := range backup_node.Slice() {
+                if recovered > 0 {
+                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -10, incheck: true}
+                    recovered--
+                } else {
+                    break
+                }
+            }
 		}
 	}
 }
@@ -279,10 +291,16 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_nod
 	stats := c.stats[index]
 	old := stats[i]
 	if adjust >= 0 {
-		stats[i] = (stats[i] + adjust) / 2
+		stats[i] = stats[i] + adjust
 	} else {
 		stats[i] += adjust
 	}
+    // try to reduce the bucket's stats
+    if stats[i] > 1000 {
+        for index := 0; index < len(stats); index++ {
+            stats[index] -= 500
+        }
+    }
 	bucket_len := len(c.buckets[index])
 	bucket := make([]int, bucket_len)
 	copy(bucket, c.buckets[index])
