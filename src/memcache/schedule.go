@@ -240,6 +240,13 @@ func (c *ManualScheduler) try_recovery() {
                 ErrorLog.Println("=========================================================")
                 ErrorLog.Println("current buckets:")
                 ErrorLog.Println(c.buckets)
+                for i, bucket := range c.buckets {
+                    ErrorLog.Printf("Bucket %X: [ ", i)
+                    for _, node := range bucket {
+                        ErrorLog.Printf("%s ", c.hosts[node].Addr)
+                    }
+                    ErrorLog.Printf("]\n")
+                }
                 ErrorLog.Println("=========================================================")
                 smth_down = true
             }
