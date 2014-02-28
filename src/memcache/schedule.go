@@ -249,7 +249,8 @@ func (c *ManualScheduler) try_recovery() {
                 downs := down_node.Slice()
                 down_addrs := make([]string, len(downs))
                 for j, h := range downs {
-                    down_addrs[j] = c.hosts[h].Addr
+                    addr := c.hosts[h].Addr
+                    down_addrs[j] = addr[:strings.Index(addr, ":")]
                 }
                 down_content := strings.Join(down_addrs, ", ")
                 ErrorLog.Printf("Down MainNodes: %s", down_content)
