@@ -46,7 +46,7 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
 			cnt++
 			if r != nil {
 				t := float64(time.Now().Sub(st)) / 1e9
-				c.scheduler.Feedback(host, key, 1-float64(math.Sqrt(t)*t), false)
+				c.scheduler.Feedback(host, key, 1 - float64(math.Sqrt(t)*t), true)
 				// got the right rval
 				targets = []string{host.Addr}
 				err = nil
@@ -85,7 +85,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
 		}
 
 		t := float64(time.Now().Sub(st)) / 1e9
-		c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t), false)
+		c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t), true)
 		for k, v := range r {
 			rs[k] = v
 		}
