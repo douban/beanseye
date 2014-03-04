@@ -240,10 +240,10 @@ func fastdivideKeysByBucket(hash_func HashMethod, bs int, bw int, keys []string)
 
 func (c *ManualScheduler) dump_scores() {
     for i, bucket := range c.buckets {
-        scores := make([]float64, len(bucket))
+        scores := make([]string, len(bucket))
         stats := c.stats[i]
         for j, n := range bucket {
-            scores[j] = stats[n]
+            scores[j] = fmt.Sprintf("%s:%f", c.hosts[n].Addr, stats[n])
         }
         ErrorLog.Printf( "Bucket %X Score: %v", i, scores)
     }
