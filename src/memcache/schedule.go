@@ -227,6 +227,17 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
 	return c
 }
 
+func fastdivideKeysByBucket(hash_func HashMethod, bs int, bw int, keys []string) [][]string {
+	rs := make([][]string, bs)
+    //bw := calBitWidth(bs)
+	for _, key := range keys {
+		b := getBucketByKey(hash_func, bw, key)
+		rs[b] = append(rs[b], key)
+	}
+	return rs
+}
+
+
 func (c *ManualScheduler) try_recovery() {
     smth_down := false
 	for i, bucket := range c.buckets {
@@ -296,9 +307,9 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_nod
 		stats[i] += adjust
 	}
     // try to reduce the bucket's stats
-    if stats[i] > 1000 {
+    if stats[i] > 80 {
         for index := 0; index < len(stats); index++ {
-            stats[index] -= 500
+            stats[index] = stats[index] / 2
         }
     }
 	bucket_len := len(c.buckets[index])
@@ -348,7 +359,7 @@ func (c *ManualScheduler) GetHostsByKey(key string) (host []*Host) {
 }
 
 func (c *ManualScheduler) DivideKeysByBucket(keys []string) [][]string {
-	return divideKeysByBucket(c.hashMethod, len(c.buckets), keys)
+	return fastdivideKeysByBucket(c.hashMethod, len(c.buckets), c.bucketWidth, keys)
 }
 
 func (c *ManualScheduler) Feedback(host *Host, key string, adjust float64, in_check bool) {
@@ -460,6 +471,7 @@ func divideKeysByBucket(hash_func HashMethod, bs int, keys []string) [][]string 
 	}
 	return rs
 }
+
 
 func (c *AutoScheduler) DivideKeysByBucket(keys []string) [][]string {
 	return divideKeysByBucket(c.hashMethod, len(c.buckets), keys)
