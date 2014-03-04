@@ -11,13 +11,6 @@ import (
 	"time"
 )
 
-const (
-	CMD_SET    = 0
-	CMD_DELETE = 1
-	CMD_INCR   = 2
-	CMD_APPEND = 3
-)
-
 // Client of memcached
 type Client struct {
 	scheduler Scheduler
@@ -78,7 +71,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
 		r, er := host.GetMulti(keys)
 		if er != nil { // failed
 			err = er
-			c.scheduler.Feedback(host, keys[0], -10, true)
+			c.scheduler.Feedback(host, keys[0], -5, true)
 		} else {
 			suc += 1
 			targets = append(targets, host.Addr)
@@ -156,7 +149,7 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
 			suc++
 			targets = append(targets, host.Addr)
 		} else {
-			c.scheduler.Feedback(host, key, -5, true)
+			c.scheduler.Feedback(host, key, -10, true)
 		}
 		if suc >= c.W && (i+1) >= c.N {
 			// at least try N backends, and succeed W backends
