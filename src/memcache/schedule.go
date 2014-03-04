@@ -245,7 +245,7 @@ func (c *ManualScheduler) dump_scores() {
         for j, n := range bucket {
             scores[j] = stats[n]
         }
-        ErrorLog.Print( "Bucket %X Score: %v", i, scores)
+        ErrorLog.Printf( "Bucket %X Score: %v", i, scores)
     }
 }
 
