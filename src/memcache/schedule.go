@@ -313,11 +313,17 @@ func (c *ManualScheduler) procFeedback() {
 func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_node bool) {
     stats := c.stats[index]
     old := stats[i]
+    /*
     if adjust >= 0 {
 	    stats[i] = stats[i] + adjust
 	} else {
 		stats[i] += adjust
 	}
+    */
+    stats[i] += adjust
+    ErrorLog.Printf("feedback with bucket %X, node index: %d, address: %s, adjust value : %f, stats before: %f, stats after: %f",
+            index, i, c.hosts[i].Addr, adjust, old, stats[i])
+
     // try to reduce the bucket's stats
     if stats[i] > 80 {
         for index := 0; index < len(stats); index++ {
@@ -338,20 +344,16 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64, change_main_nod
 
 	if stats[i]-old > 0 {
         for k > 0 && stats[bucket[k]] > stats[bucket[k-1]] {
-            if k == 3 {
-	            if !change_main_node {
-	                break
-                }
+            if k == 3 && !change_main_node {
+                break
             }
             swap(bucket, k, k-1)
 	        k--
 	    }
 	} else {
         for k < bucket_len -1 && stats[bucket[k]] < stats[bucket[k+1]] {
-	        if k == 2 {
-	            if !change_main_node {
-	                break
-                }
+	        if k == 2  && !change_main_node {
+                break
 	        }
             swap(bucket, k, k+1)
 	        k++
