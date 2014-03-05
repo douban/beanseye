@@ -131,6 +131,9 @@ func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp 
 	go func() {
 		resp, err = host.execute(req)
 		done <- true
+        if err != nil {
+		    ErrorLog.Print(host.Addr, " request to host err", err)
+        }
 	}()
 
 	select {
