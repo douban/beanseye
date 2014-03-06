@@ -33,27 +33,32 @@ func (c *RClient) Get(key string) (r *Item, targets []string, err error) {
     for i, host := range hosts {
         st := time.Now()
         r, err = host.Get(key)
-        if err != nil {
-            c.scheduler.Feedback(host, key, -10, false)
-        } else {
+        if err == nil {
             cnt++
             if r != nil {
                 t := float64(time.Now().Sub(st)) / 1e9
-                c.scheduler.Feedback(host, key, -float64(math.Sqrt(t)*t), false)
-                for j := 0; j < i; j++ {
-                    c.scheduler.Feedback(hosts[j], key, -1, false)
-                }
+                c.scheduler.Feedback(host, key, 1 - float64(math.Sqrt(t)*t))
                 // got the right rval
                 targets = []string{host.Addr}
                 err = nil
+                //return r, nil
                 return
             }
+        } else if err.Error() != "wait for retry" {
+            ErrorLog.Printf("Get from host: %s failed with error: %s and feedback -5", host.Addr, err)
+            c.scheduler.Feedback(host, key, -5)
         }
         if cnt >= c.R && i+1 >= c.N {
+            // because hosts are sorted
             err = nil
+            for _, success_host := range hosts[:3] {
+                targets = append(targets, success_host.Addr)
+            }
+            // because no item gotten
             break
         }
     }
+    // here is a failure exit
     return
 }
 
@@ -65,16 +70,17 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
     for i, host := range hosts {
         st := time.Now()
         r, er := host.GetMulti(keys)
-        if er != nil { // failed
-            err = er
-            c.scheduler.Feedback(host, keys[0], -10, false)
-        } else {
+        if er == nil {
             suc += 1
             targets = append(targets, host.Addr)
+        } else if er.Error() != "wait for retry" { // failed
+            ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, er)
+            c.scheduler.Feedback(host, keys[0], -5)
         }
+        err = er
 
         t := float64(time.Now().Sub(st)) / 1e9
-        c.scheduler.Feedback(host, keys[0], -float64(math.Sqrt(t)*t), false)
+        c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
         for k, v := range r {
             rs[k] = v
         }
@@ -103,6 +109,7 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
         err = nil
     }
     return
+
 }
 
 func (c *RClient) GetMulti(keys []string) (rs map[string]*Item, targets []string, err error) {

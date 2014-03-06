@@ -37,7 +37,7 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
             cnt++
             if r != nil {
                 t := float64(time.Now().Sub(st)) / 1e9
-                c.scheduler.Feedback(host, key, 1 - float64(math.Sqrt(t)*t), true)
+                c.scheduler.Feedback(host, key, 1 - float64(math.Sqrt(t)*t))
                 // got the right rval
                 targets = []string{host.Addr}
                 err = nil
@@ -46,7 +46,7 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
             }
         } else if err.Error() != "wait for retry" {
             ErrorLog.Printf("Get from host: %s failed with error: %s and feedback -5", host.Addr, err)
-            c.scheduler.Feedback(host, key, -5, true)
+            c.scheduler.Feedback(host, key, -5)
         }
         if cnt >= c.R && i+1 >= c.N {
             // because hosts are sorted
@@ -75,12 +75,12 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
             targets = append(targets, host.Addr)
         } else if er.Error() != "wait for retry" { // failed
             ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, er)
-            c.scheduler.Feedback(host, keys[0], -5, true)
+            c.scheduler.Feedback(host, keys[0], -5)
         }
         err = er
 
         t := float64(time.Now().Sub(st)) / 1e9
-        c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t), true)
+        c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
         for k, v := range r {
             rs[k] = v
         }
@@ -152,7 +152,7 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
             targets = append(targets, host.Addr)
         } else if err.Error() != "wait for retry" {
             ErrorLog.Printf("Set from host: %s failed with error: %s and feedback -10", host.Addr, err)
-            c.scheduler.Feedback(host, key, -10, true)
+            c.scheduler.Feedback(host, key, -10)
         }
         if suc >= c.W && (i+1) >= c.N {
             // at least try N backends, and succeed W backends
@@ -176,7 +176,7 @@ func (c *Client) Append(key string, value []byte) (ok bool, targets []string, fi
             targets = append(targets, host.Addr)
         } else if err.Error() != "wait for retry" {
             ErrorLog.Printf("Append from host: %s failed with error: %s and feedback -5", host.Addr, err)
-            c.scheduler.Feedback(host, key, -5, true)
+            c.scheduler.Feedback(host, key, -5)
         }
         if suc >= c.W && (i+1) >= c.N {
             // at least try N backends, and succeed W backends
@@ -230,7 +230,7 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
             err_count++
             if i < c.N {
                 ErrorLog.Printf("Delete from host: %s failed with error: %s and feedback -10", host.Addr, err)
-                c.scheduler.Feedback(host, key, -10, true)
+                c.scheduler.Feedback(host, key, -10)
             }
         } else if ok {
             suc++
