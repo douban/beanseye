@@ -130,9 +130,6 @@ func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp 
     done := make(chan bool, 1)
     go func() {
         resp, err = host.execute(req)
-        if err != nil {
-            ErrorLog.Print(host.Addr, " request to host with error: ", err)
-        }
         done <- true
     }()
 
