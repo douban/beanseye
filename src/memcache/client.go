@@ -74,7 +74,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
             suc += 1
             targets = append(targets, host.Addr)
         } else if er.Error() != "wait for retry" { // failed
-            ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, err)
+            ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, er)
             c.scheduler.Feedback(host, keys[0], -5, true)
         }
         err = er
