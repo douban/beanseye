@@ -259,8 +259,8 @@ func (c *ManualScheduler) try_recovery() {
         if down_node.IsEmpty() {
             // no down nodes, just skip
             // random raward 2nd, 3rd node
-            second_reward := float64(rand.Intn(10))
-            third_reward := float64(rand.Intn(10))
+            second_reward := float64(rand.Intn(16))
+            third_reward := float64(rand.Intn(16))
             c.feedChan <- &Feedback {hostIndex: bucket[1], bucketIndex: i, adjust: second_reward}
             c.feedChan <- &Feedback {hostIndex: bucket[2], bucketIndex: i, adjust: third_reward}
         } else {
