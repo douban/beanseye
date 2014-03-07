@@ -253,7 +253,6 @@ func (c *ManualScheduler) dump_scores() {
 
 func (c *ManualScheduler) try_recovery() {
     c.dump_scores()
-    smth_down := false
     for i, bucket := range c.buckets {
         curr := bit.New(bucket[:c.N]...)
         down_node := c.main_nodes[i].AndNot(curr)
@@ -265,26 +264,23 @@ func (c *ManualScheduler) try_recovery() {
             c.feedChan <- &Feedback {hostIndex: bucket[1], bucketIndex: i, adjust: second_reward}
             c.feedChan <- &Feedback {hostIndex: bucket[2], bucketIndex: i, adjust: third_reward}
         } else {
-            if !smth_down {
-                ErrorLog.Print("downbuckets:")
-                //ErrorLog.Println(c.buckets)
-                addrs := make([]string, len(bucket))
-                for j, node := range bucket {
-                    addr := c.hosts[node].Addr
-                    addrs[j] = addr[:strings.Index(addr, ":")]
-                }
-                bucket_content := strings.Join(addrs, ", ")
-                ErrorLog.Printf("Bucket %X: [%s]", i, bucket_content)
-                downs := down_node.Slice()
-                down_addrs := make([]string, len(downs))
-                for j, h := range downs {
-                    addr := c.hosts[h].Addr
-                    down_addrs[j] = addr[:strings.Index(addr, ":")]
-                }
-                down_content := strings.Join(down_addrs, ", ")
-                ErrorLog.Printf("Down MainNodes: %s", down_content)
-                smth_down = true
+            //ErrorLog.Print("downbuckets:")
+            //ErrorLog.Println(c.buckets)
+            addrs := make([]string, len(bucket))
+            for j, node := range bucket {
+                addr := c.hosts[node].Addr
+                addrs[j] = addr[:strings.Index(addr, ":")]
             }
+            bucket_content := strings.Join(addrs, ", ")
+            ErrorLog.Printf("DownBucket %X: [%s]", i, bucket_content)
+            downs := down_node.Slice()
+            down_addrs := make([]string, len(downs))
+            for j, h := range downs {
+                addr := c.hosts[h].Addr
+                down_addrs[j] = addr[:strings.Index(addr, ":")]
+            }
+            down_content := strings.Join(down_addrs, ", ")
+            ErrorLog.Printf("Down MainNodes: %s", down_content)
             recovered := 0
             for _, node := range down_node.Slice() {
                 host := c.hosts[node]
