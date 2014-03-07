@@ -244,7 +244,8 @@ func (c *ManualScheduler) dump_scores() {
         scores := make([]string, len(bucket))
         stats := c.stats[i]
         for j, n := range bucket {
-            scores[j] = fmt.Sprintf("%s:%f", c.hosts[n].Addr, stats[n])
+            addr := c.hosts[n].Addr
+            scores[j] = fmt.Sprintf("%s:%f", addr[:strings.Index(addr, ":")], stats[n])
         }
         ErrorLog.Printf( "Bucket %X Score: %v", i, scores)
     }
