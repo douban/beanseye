@@ -289,7 +289,7 @@ func (c *ManualScheduler) try_recovery() {
                 host := c.hosts[node]
                 if _, err := host.Get("@"); err == nil {
                     // no err now, swap to main portion
-                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 20}
+                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 30}
                     recovered++
                 }
             }
@@ -297,6 +297,7 @@ func (c *ManualScheduler) try_recovery() {
             backup_node := curr.AndNot(c.main_nodes[i])
             for _, node := range backup_node.Slice() {
                 if recovered > 0 {
+                    ErrorLog.Printf("Up BackupNode: %s", c.hosts[node].Addr)
                     c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -10}
                     recovered--
                 } else {
