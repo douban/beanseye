@@ -73,14 +73,17 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
         if er == nil {
             suc += 1
             targets = append(targets, host.Addr)
+            t := float64(time.Now().Sub(st)) / 1e9
+            c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
         } else if er.Error() != "wait for retry" { // failed
             ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, er)
             c.scheduler.Feedback(host, keys[0], -5)
         }
         err = er
+        if er != nil {
+            continue
+        }
 
-        t := float64(time.Now().Sub(st)) / 1e9
-        c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
         for k, v := range r {
             rs[k] = v
         }
