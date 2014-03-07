@@ -71,9 +71,11 @@ class Test3(TestBeanseyeBase):
             i += 1
             proxy.set(key3, data3)
             self.assertEqual(proxy.get(key3), data3)
+            time.sleep(0.1)
             data3_ = store4.get(key3)
             if data3_ is None:
-                print "store4 get nothing yet, round=", i
+                pass
+                #print "store4 get nothing yet, round=", i
             else:
                 print "fallbacked to store4 after %s tries" % (i)
                 fallbacked = True
@@ -94,11 +96,13 @@ class Test3(TestBeanseyeBase):
         while i < 20000:
             #data3 = random_string(10)
             i += 1
+            time.sleep(0.1)
             proxy.set(key3, data3)
             self.assertEqual(proxy.get(key3), data3)
             data3_ = store1.get(key3)
             if data3_ is None:
-                print "store1 get nothing yet, round=", i
+                pass
+                #print "store1 get nothing yet, round=", i
             else:
                 print "recover to store1 after %s tries, %s sec" % (i, time.time() - ts_recover_start)
                 recovered = True
