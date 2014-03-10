@@ -292,6 +292,7 @@ func (c *ManualScheduler) try_recovery() {
             backup_node := curr.AndNot(c.main_nodes[i])
             for _, node := range backup_node.Slice() {
                 if recovered > 0 {
+                    ErrorLog.Printf("Backup node : %s get punishment -30", c.hosts[node].Addr)
                     c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -30}
                     recovered--
                 } else {
