@@ -73,9 +73,11 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
         r, er := host.GetMulti(keys)
         if er == nil {
             suc += 1
-            targets = append(targets, host.Addr)
-            t := float64(time.Now().Sub(st)) / 1e9
-            c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
+            if r != nil {
+                targets = append(targets, host.Addr)
+                t := float64(time.Now().Sub(st)) / 1e9
+                c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
+            }
         } else if er.Error() != "wait for retry" { // failed
             c.scheduler.Feedback(host, keys[0], -5)
         } else {
