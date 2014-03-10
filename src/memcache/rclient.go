@@ -45,7 +45,6 @@ func (c *RClient) Get(key string) (r *Item, targets []string, err error) {
                 return
             }
         } else if err.Error() != "wait for retry" {
-            ErrorLog.Printf("Get from host: %s failed with error: %s and feedback -5", host.Addr, err)
             c.scheduler.Feedback(host, key, -5)
         }
         if cnt >= c.R && i+1 >= c.N {
@@ -74,7 +73,6 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
             suc += 1
             targets = append(targets, host.Addr)
         } else if er.Error() != "wait for retry" { // failed
-            ErrorLog.Printf("GetMulti from host: %s failed with error: %s and feedback -5", host.Addr, er)
             c.scheduler.Feedback(host, keys[0], -5)
         }
         err = er
