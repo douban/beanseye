@@ -252,7 +252,7 @@ func (c *ManualScheduler) dump_scores() {
 }
 
 func (c *ManualScheduler) try_recovery() {
-    //c.dump_scores()
+    c.dump_scores()
     for i, bucket := range c.buckets {
         curr := bit.New(bucket[:c.N]...)
         down_node := c.main_nodes[i].AndNot(curr)
@@ -264,7 +264,6 @@ func (c *ManualScheduler) try_recovery() {
             c.feedChan <- &Feedback {hostIndex: bucket[1], bucketIndex: i, adjust: second_reward}
             c.feedChan <- &Feedback {hostIndex: bucket[2], bucketIndex: i, adjust: third_reward}
         } else {
-            /*
             addrs := make([]string, len(bucket))
             for j, node := range bucket {
                 addr := c.hosts[node].Addr
@@ -280,7 +279,6 @@ func (c *ManualScheduler) try_recovery() {
             }
             down_content := strings.Join(down_addrs, ", ")
             ErrorLog.Printf("Down MainNodes: %s", down_content)
-            */
             recovered := 0
             for _, node := range down_node.Slice() {
                 host := c.hosts[node]
@@ -294,7 +292,7 @@ func (c *ManualScheduler) try_recovery() {
             backup_node := curr.AndNot(c.main_nodes[i])
             for _, node := range backup_node.Slice() {
                 if recovered > 0 {
-                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -10}
+                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -30}
                     recovered--
                 } else {
                     break
@@ -320,7 +318,7 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64) {
     // try to reduce the bucket's stats
     if stats[i] > 80 {
         for index := 0; index < len(stats); index++ {
-            stats[index] = stats[index] / 2
+            stats[index] = stats[index] / 1.5
         }
     }
     bucket_len := len(c.buckets[index])

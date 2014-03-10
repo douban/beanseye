@@ -157,8 +157,6 @@ func (c *Client) Set(key string, item *Item, noreply bool) (ok bool, targets []s
             targets = append(targets, host.Addr)
         } else if err.Error() != "wait for retry" {
             c.scheduler.Feedback(host, key, -10)
-        } else {
-            c.scheduler.Feedback(host, key, -2)
         }
 
         if suc >= c.W && (i+1) >= c.N {
@@ -183,8 +181,6 @@ func (c *Client) Append(key string, value []byte) (ok bool, targets []string, fi
             targets = append(targets, host.Addr)
         } else if err.Error() != "wait for retry" {
             c.scheduler.Feedback(host, key, -5)
-        } else {
-            c.scheduler.Feedback(host, key, -2)
         }
 
         if suc >= c.W && (i+1) >= c.N {
@@ -246,8 +242,6 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
             }
             if er.Error() != "wait for retry" {
                 c.scheduler.Feedback(host, key, -10)
-            } else {
-                c.scheduler.Feedback(host, key, -2)
             }
         }
 
