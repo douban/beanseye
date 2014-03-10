@@ -252,7 +252,7 @@ func (c *ManualScheduler) dump_scores() {
 }
 
 func (c *ManualScheduler) try_recovery() {
-    c.dump_scores()
+    //c.dump_scores()
     for i, bucket := range c.buckets {
         curr := bit.New(bucket[:c.N]...)
         down_node := c.main_nodes[i].AndNot(curr)
@@ -264,8 +264,7 @@ func (c *ManualScheduler) try_recovery() {
             c.feedChan <- &Feedback {hostIndex: bucket[1], bucketIndex: i, adjust: second_reward}
             c.feedChan <- &Feedback {hostIndex: bucket[2], bucketIndex: i, adjust: third_reward}
         } else {
-            //ErrorLog.Print("downbuckets:")
-            //ErrorLog.Println(c.buckets)
+            /*
             addrs := make([]string, len(bucket))
             for j, node := range bucket {
                 addr := c.hosts[node].Addr
@@ -281,6 +280,7 @@ func (c *ManualScheduler) try_recovery() {
             }
             down_content := strings.Join(down_addrs, ", ")
             ErrorLog.Printf("Down MainNodes: %s", down_content)
+            */
             recovered := 0
             for _, node := range down_node.Slice() {
                 host := c.hosts[node]
@@ -294,7 +294,6 @@ func (c *ManualScheduler) try_recovery() {
             backup_node := curr.AndNot(c.main_nodes[i])
             for _, node := range backup_node.Slice() {
                 if recovered > 0 {
-                    ErrorLog.Printf("Up BackupNode: %s", c.hosts[node].Addr)
                     c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -10}
                     recovered--
                 } else {
@@ -316,16 +315,7 @@ func (c *ManualScheduler) procFeedback() {
 func (c *ManualScheduler) feedback(i, index int, adjust float64) {
     stats := c.stats[index]
     old := stats[i]
-    /*
-    if adjust >= 0 {
-        stats[i] = stats[i] + adjust
-    } else {
-        stats[i] += adjust
-    }
-    */
     stats[i] += adjust
-    ErrorLog.Printf("feedback with bucket %X, node index: %d, address: %s, adjust value : %f, stats before: %f, stats after: %f",
-            index, i, c.hosts[i].Addr, adjust, old, stats[i])
 
     // try to reduce the bucket's stats
     if stats[i] > 80 {
@@ -599,18 +589,6 @@ func (c *AutoScheduler) listHost(host *Host, dir string) {
         cnt, _ := strconv.ParseFloat(string(vv[2]), 64)
         adjust := float64(math.Sqrt(cnt))
         c.Feedback(host, dir+string(vv[0]), adjust)
-    }
-}
-
-func (c *AutoScheduler) Showbuckets() {
-    ErrorLog.Println("--- Buckets ---")
-    for i, b := range c.buckets {
-        ErrorLog.Println("bucket ", i, " :")
-        for _, id := range b {
-            host := c.hosts[id]
-            ErrorLog.Println(host.Addr)
-        }
-        ErrorLog.Println("+++++++++++++++++++++")
     }
 }
 
