@@ -314,6 +314,9 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64) {
     stats := c.stats[index]
     old := stats[i]
     stats[i] += adjust
+    if stats[i] < 0 && old > 0 && adjust > -4.9 {
+        stats[i] = 0
+    }
 
     // try to reduce the bucket's stats
     if stats[i] > 80 {
