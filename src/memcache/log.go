@@ -6,7 +6,6 @@ import (
     "sync"
     "sync/atomic"
     "unsafe"
-    "runtime"
 )
 var AccessLogPath string
 var ErrorLogPath string
@@ -69,7 +68,7 @@ func OpenErrorLog(error_log_path string) (success bool, err error) {
             success = true
             error_log = (*log.Logger)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorLog)), unsafe.Pointer(error_log)))
             error_file = (*os.File)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorFd)), unsafe.Pointer(error_file)))
-            if e = error_log.Close(); e != nil {
+            if e = error_file.Close(); e != nil {
                 log.Println("close the old errorlog fd failure with, ", e)
             }
         } else {
