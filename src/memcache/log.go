@@ -43,17 +43,12 @@ func OpenAccessLog(access_log_path string) (success bool, err error) {
             success = true
             access_log = (*log.Logger)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&AccessLog)), unsafe.Pointer(access_log)))
             access_file = (*os.File)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&AccessFd)), unsafe.Pointer(access_file)))
-            runtime.SetFinalizer(access_file, func(f *os.File) {
-                if e := f.Close(); e == nil {
-                    log.Println("close the old accesslog fd success!")
-                } else {
-                    log.Println("close the old accesslog fd failure with, ", e)
-                }
-            })
+            if e = access_file.Close(); e != nil {
+                log.Println("close the old accesslog fd failure with, ", e)
+            }
+        } else {
+            log.Println("open " + access_log_path + " failed: " + err.Error())
         }
-    }
-    if !success {
-        log.Println("open " + access_log_path + " failed: " + err.Error())
     }
     return
 }
@@ -74,17 +69,12 @@ func OpenErrorLog(error_log_path string) (success bool, err error) {
             success = true
             error_log = (*log.Logger)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorLog)), unsafe.Pointer(error_log)))
             error_file = (*os.File)(atomic.SwapPointer((*unsafe.Pointer)(unsafe.Pointer(&ErrorFd)), unsafe.Pointer(error_file)))
-            runtime.SetFinalizer(error_file, func(f *os.File) {
-                if e := f.Close(); e == nil {
-                    log.Println("close the old errorlog fd success!")
-                } else {
-                    log.Println("close the old errorlog fd failure with, ", e)
-                }
-            })
+            if e = error_log.Close(); e != nil {
+                log.Println("close the old errorlog fd failure with, ", e)
+            }
+        } else {
+            log.Println("open " + error_log_path + " failed: " + err.Error())
         }
-    }
-    if !success {
-        log.Println("open " + error_log_path + " failed: " + err.Error())
     }
     return
 }
