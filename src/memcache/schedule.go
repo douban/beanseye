@@ -239,6 +239,7 @@ func fastdivideKeysByBucket(hash_func HashMethod, bs int, bw int, keys []string)
 }
 
 
+/*
 func (c *ManualScheduler) dump_scores() {
     for i, bucket := range c.buckets {
         scores := make([]string, len(bucket))
@@ -250,9 +251,10 @@ func (c *ManualScheduler) dump_scores() {
         ErrorLog.Printf( "Bucket %X Score: %v", i, scores)
     }
 }
+*/
 
 func (c *ManualScheduler) try_recovery() {
-    c.dump_scores()
+    //c.dump_scores()
     for i, bucket := range c.buckets {
         curr := bit.New(bucket[:c.N]...)
         down_node := c.main_nodes[i].AndNot(curr)
