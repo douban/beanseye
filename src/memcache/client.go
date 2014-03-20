@@ -230,6 +230,7 @@ func (c *Client) Incr(key string, value int) (result int, targets []string, err 
 func (c *Client) Delete(key string) (r bool, targets []string, err error) {
     suc := 0
     err_count := 0
+    failed_hosts := make([]string, 6)
     for i, host := range c.scheduler.GetHostsByKey(key) {
         ok, er := host.Delete(key)
 
@@ -239,6 +240,7 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
         } else if er != nil {
             err = er
             err_count++
+            failed_hosts = append(failed_hosts, host.Addr)
             if i >= c.N {
                 continue
             }
@@ -259,6 +261,10 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
         r = false
     }
     //return suc >= c.W, err
+    if err != nil {
+        ErrorLog.Printf("key: %s was delete failed in %v, and the last erorr is %s", key, failed_hosts, err)
+        err = nil
+    }
     return
 }
 
