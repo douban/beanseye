@@ -253,8 +253,10 @@ func (c *Client) Delete(key string) (r bool, targets []string, err error) {
             break
         }
     }
-    if err_count < 2 {
+    if err_count > 0 {
         ErrorLog.Printf("key: %s was delete failed in %v, and the last erorr is %s", key, failed_hosts, err)
+    }
+    if err_count < 2 {
         err = nil
     }
     r = (suc > 0)
