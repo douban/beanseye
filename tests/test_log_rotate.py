@@ -8,6 +8,7 @@ import signal
 from base import TestBeanseyeBase, BeansdbInstance, random_string, stop_svc
 import unittest
 from douban.beansdb import BeansDBProxy, MCStore
+import subprocess
 
 
 class TestLogRotate(TestBeanseyeBase):
@@ -68,6 +69,10 @@ class TestLogRotate(TestBeanseyeBase):
         self._assert_data(self.backend3_addr, 'key1', data1)
         self.assert_(MCStore(self.backend2_addr).exists('key1'))
 
+        cmd = "ls -l /proc/%s/fd" % (self.proxy_p.pid)
+        print cmd
+        print subprocess.check_output(cmd, shell=True)
+
         print "move log"
         if os.path.exists(self.accesslog_bak):
             os.remove(self.accesslog_bak)
@@ -81,9 +86,14 @@ class TestLogRotate(TestBeanseyeBase):
         self.assert_(not os.path.exists(self.accesslog))
         self.assert_(not os.path.exists(self.errorlog))
 
+        time.sleep(5)
+
         print "send SIGINT signal, should re-open log file" 
         os.kill(self.proxy_p.pid, signal.SIGINT)
-        time.sleep(1)
+
+        cmd = "ls -l /proc/%s/fd" % (self.proxy_p.pid)
+        print subprocess.check_output(cmd, shell=True)
+
         s = os.stat(self.accesslog)
         self.assert_(os.path.exists(self.accesslog))
         self.assert_(os.path.exists(self.errorlog))
@@ -93,6 +103,7 @@ class TestLogRotate(TestBeanseyeBase):
         s_new = os.stat(self.accesslog)
         print s_new.st_size, s.st_size
         self.assert_(s_new.st_size > s.st_size)
+
 
         
         
