@@ -3,7 +3,7 @@ package memcache
 import (
     "bytes"
     "fmt"
-    "github.com/hurricane1026/go-bit/bit"
+    //"github.com/hurricane1026/go-bit/bit"
     "math"
     "sort"
     "strconv"
@@ -151,11 +151,11 @@ type ManualScheduler struct {
     N          int
     hosts      []*Host
     buckets    [][]int
+    backups    [][]int
     bucketWidth int
     stats      [][]float64
     hashMethod HashMethod
     feedChan   chan *Feedback
-    main_nodes []*bit.Set
 }
 
 // the string is a Hex int string, if it start with -, it means serve the bucket as a backup
@@ -168,6 +168,7 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
     c := new(ManualScheduler)
     c.hosts = make([]*Host, len(config))
     c.buckets = make([][]int, bs)
+    c.backups = make([][]int, bs)
     c.stats = make([][]float64, bs)
     c.N = n
 
@@ -179,13 +180,15 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
         for _, bucket_str := range serve_to {
             if strings.HasPrefix(bucket_str, "-") {
                 if bucket, e := strconv.ParseInt(bucket_str[1:], 16, 16); e == nil {
-                    c.buckets[bucket] = append(c.buckets[bucket], no)
+                    //c.buckets[bucket] = append(c.buckets[bucket], no)
+                    c.backups[bucket] = append(c.backups[bucket], no)
+
                 } else {
                     ErrorLog.Println("Parse serving bucket config failed, it was not digital")
                 }
             } else {
                 if bucket, e := strconv.ParseInt(bucket_str, 16, 16); e == nil {
-                    c.buckets[bucket] = append([]int{no}, c.buckets[bucket]...)
+                    c.buckets[bucket] = append(c.buckets[bucket], no)
                 } else {
                     ErrorLog.Println("Parse serving bucket config failed, it was not digital")
                 }
@@ -193,36 +196,18 @@ func NewManualScheduler(config map[string][]string, bs, n int) *ManualScheduler 
         }
         no++
     }
-
     // set c.stats according to c.buckets
-    /*
     for b := 0; b < bs; b++ {
         c.stats[b] = make([]float64, len(c.hosts))
-        // set main server's stat to be 10.0
     }
-    */
-    for i, bucket := range c.buckets {
-        c.stats[i] = make([]float64, len(c.hosts))
-        // set main server's stat to be 10.0
-        for _, main_node_offset := range bucket[:c.N] {
-            c.stats[i][main_node_offset] = 10.0
-        }
-    }
-
-    // record the main nodes in main_buckets
-    c.main_nodes = make([]*bit.Set, bs)
-    for i, bucket := range c.buckets {
-        c.main_nodes[i] = bit.New(bucket[:c.N]...)
-    }
-
     c.hashMethod = fnv1a1
     c.bucketWidth = calBitWidth(bs)
 
     go c.procFeedback()
     go func() {
         for {
-            c.try_recovery()
-            time.Sleep(10 * 1e9)
+            c.try_reward()
+            time.Sleep(5 * 1e9)
         }
     }()
     return c
@@ -253,54 +238,32 @@ func (c *ManualScheduler) dump_scores() {
 }
 */
 
-func (c *ManualScheduler) try_recovery() {
+func (c *ManualScheduler) try_reward() {
     //c.dump_scores()
     for i, bucket := range c.buckets {
-        curr := bit.New(bucket[:c.N]...)
-        down_node := c.main_nodes[i].AndNot(curr)
-        if down_node.IsEmpty() {
-            // no down nodes, just skip
-            // random raward 2nd, 3rd node
-            second_reward := float64(rand.Intn(16))
-            third_reward := float64(rand.Intn(16))
-            c.feedChan <- &Feedback {hostIndex: bucket[1], bucketIndex: i, adjust: second_reward}
-            c.feedChan <- &Feedback {hostIndex: bucket[2], bucketIndex: i, adjust: third_reward}
-        } else {
-            addrs := make([]string, len(bucket))
-            for j, node := range bucket {
-                addr := c.hosts[node].Addr
-                addrs[j] = addr[:strings.Index(addr, ":")]
+        // random raward 2nd, 3rd node
+        second_node := bucket[1]
+        if _, err := c.hosts[second_node].Get("@"); err == nil {
+            var second_reward float64 = 0.0
+            second_stat := c.stats[i][second_node]
+            if second_stat < 0 {
+                second_reward = 0 - second_stat
+            } else {
+                second_reward = float64(rand.Intn(10))
             }
-            bucket_content := strings.Join(addrs, ", ")
-            ErrorLog.Printf("DownBucket %X: [%s]", i, bucket_content)
-            downs := down_node.Slice()
-            down_addrs := make([]string, len(downs))
-            for j, h := range downs {
-                addr := c.hosts[h].Addr
-                down_addrs[j] = addr[:strings.Index(addr, ":")]
+            c.feedChan <- &Feedback {hostIndex: second_node, bucketIndex: i, adjust: second_reward}
+        }
+
+        third_node := bucket[2]
+        if _, err := c.hosts[third_node].Get("@"); err == nil {
+            var third_reward float64 = 0.0
+            third_stat := c.stats[i][second_node]
+            if third_stat < 0 {
+                third_reward = 0 - third_stat
+            } else {
+                third_reward = float64(rand.Intn(16))
             }
-            down_content := strings.Join(down_addrs, ", ")
-            ErrorLog.Printf("Down MainNodes: %s", down_content)
-            recovered := 0
-            for _, node := range down_node.Slice() {
-                host := c.hosts[node]
-                if _, err := host.Get("@"); err == nil {
-                    // no err now, swap to main portion
-                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: 30}
-                    recovered++
-                }
-            }
-            // calculate a backup node in the first N
-            backup_node := curr.AndNot(c.main_nodes[i])
-            for _, node := range backup_node.Slice() {
-                if recovered > 0 {
-                    ErrorLog.Printf("Backup node : %s get punishment -30", c.hosts[node].Addr)
-                    c.feedChan <- &Feedback{hostIndex: node, bucketIndex: i, adjust: -30}
-                    recovered--
-                } else {
-                    break
-                }
-            }
+            c.feedChan <- &Feedback {hostIndex: third_node, bucketIndex: i, adjust: third_reward}
         }
     }
 }
@@ -313,27 +276,24 @@ func (c *ManualScheduler) procFeedback() {
     }
 }
 
-func (c *ManualScheduler) feedback(i, index int, adjust float64) {
-    stats := c.stats[index]
+func (c *ManualScheduler) feedback(i, bucket_index int, adjust float64) {
+
+    stats := c.stats[bucket_index]
     old := stats[i]
     stats[i] += adjust
-    if stats[i] < 0 && old > 0 && adjust > -4.9 {
-        stats[i] = 0
-    }
 
     // try to reduce the bucket's stats
-    if stats[i] > 80 {
+    if stats[i] > 100 {
         for index := 0; index < len(stats); index++ {
-            stats[index] = stats[index] / 1.5
+            stats[index] = stats[index] / 2
         }
     }
-    bucket_len := len(c.buckets[index])
-    bucket := make([]int, bucket_len)
-    copy(bucket, c.buckets[index])
+    bucket := make([]int, c.N)
+    copy(bucket, c.buckets[bucket_index])
 
     k := 0
     // find the position
-    for k = 0; k < bucket_len; k++ {
+    for k = 0; k < c.N; k++ {
         if bucket[k] == i {
             break
         }
@@ -345,20 +305,24 @@ func (c *ManualScheduler) feedback(i, index int, adjust float64) {
             k--
         }
     } else {
-        for k < bucket_len -1 && stats[bucket[k]] < stats[bucket[k+1]] {
+        for k < c.N -1 && stats[bucket[k]] < stats[bucket[k+1]] {
             swap(bucket, k, k+1)
             k++
         }
     }
     // set it to origin
-    c.buckets[index] = bucket
+    c.buckets[bucket_index] = bucket
 }
 
-func (c *ManualScheduler) GetHostsByKey(key string) (host []*Host) {
+func (c *ManualScheduler) GetHostsByKey(key string) (hosts []*Host) {
     i := getBucketByKey(c.hashMethod, c.bucketWidth, key)
-    host = make([]*Host, len(c.buckets[i]))
-    for j, addr := range c.buckets[i] {
-        host[j] = c.hosts[addr]
+    hosts = make([]*Host, c.N + len(c.backups[i]))
+    for j, offset := range c.buckets[i] {
+        hosts[j] = c.hosts[offset]
+    }
+    // set the backup nodes in pos after N - 1
+    for j, offset := range c.backups[i] {
+        hosts[c.N + j] = c.hosts[offset]
     }
     return
 }

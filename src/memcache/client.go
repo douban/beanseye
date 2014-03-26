@@ -30,7 +30,7 @@ func NewClient(sch Scheduler, N, W, R int) (c *Client) {
 func (c *Client) Get(key string) (r *Item, targets []string, err error) {
     hosts := c.scheduler.GetHostsByKey(key)
     cnt := 0
-    for i, host := range hosts {
+    for _, host := range hosts[:c.N] {
         st := time.Now()
         r, err = host.Get(key)
         if err == nil {
@@ -43,21 +43,19 @@ func (c *Client) Get(key string) (r *Item, targets []string, err error) {
                 err = nil
                 //return r, nil
                 return
+            } else {
+                targets = append(targets, host.Addr)
             }
         } else if err.Error() != "wait for retry" {
             c.scheduler.Feedback(host, key, -5)
         } else {
             c.scheduler.Feedback(host, key, -2)
         }
-        if cnt >= c.R && i+1 >= c.N {
-            // because hosts are sorted
-            err = nil
-            for _, success_host := range hosts[:3] {
-                targets = append(targets, success_host.Addr)
-            }
-            // because no item gotten
-            break
-        }
+    }
+
+    if cnt >= c.R {
+        // because hosts are sorted
+        err = nil
     }
     // here is a failure exit
     return
@@ -68,7 +66,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
     rs = make(map[string]*Item, need)
     hosts := c.scheduler.GetHostsByKey(keys[0])
     suc := 0
-    for i, host := range hosts {
+    for _, host := range hosts[:c.N] {
         st := time.Now()
         r, er := host.GetMulti(keys)
         if er == nil {
@@ -95,12 +93,6 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
         if len(rs) == need {
             break
         }
-        if i+1 >= c.N && suc >= c.R {
-            err = nil
-            targets = []string{}
-            break
-        }
-
         new_keys := []string{}
         for _, k := range keys {
             if _, ok := rs[k]; !ok {
@@ -112,7 +104,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
             break // repeated keys
         }
     }
-    if len(rs) > 0 {
+    if suc > c.R {
         err = nil
     }
     return
