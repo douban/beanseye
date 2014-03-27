@@ -93,6 +93,7 @@ class Test2(TestBeanseyeBase):
         
         print "start backend2, (backend1 still down), test delete"
         self.backend2.start()
+        time.sleep(10)
         proxy.delete('key2')
         self._assert_data(self.proxy_addr, 'key2', None)
         self._assert_data(self.backend2_addr, 'key2', None)

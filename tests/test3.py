@@ -61,12 +61,13 @@ class Test3(TestBeanseyeBase):
         """ test wether will fallback only down 1 primary node """
         proxy = BeansDBProxy([self.proxy_addr])
         self.backend1.stop()
+        self.backend2.stop()
         key3 = 'key3'
         i = 0
         store4 = MCStore(self.backend4_addr)
         ts_start = time.time()
         fallbacked = False
-        while i < 20000:
+        while i < 2000:
             data3 = random_string(10)
             i += 1
             proxy.set(key3, data3)
@@ -74,8 +75,7 @@ class Test3(TestBeanseyeBase):
             time.sleep(0.1)
             data3_ = store4.get(key3)
             if data3_ is None:
-                pass
-                #print "store4 get nothing yet, round=", i
+                print "store4 get nothing yet, round=", i
             else:
                 print "fallbacked to store4 after %s tries" % (i)
                 fallbacked = True
@@ -93,7 +93,7 @@ class Test3(TestBeanseyeBase):
         ts_recover_start = time.time()
         i = 0
         recovered = False
-        while i < 20000:
+        while i < 2000:
             #data3 = random_string(10)
             i += 1
             time.sleep(0.1)
@@ -101,8 +101,7 @@ class Test3(TestBeanseyeBase):
             self.assertEqual(proxy.get(key3), data3)
             data3_ = store1.get(key3)
             if data3_ is None:
-                pass
-                #print "store1 get nothing yet, round=", i
+                print "store1 get nothing yet, round=", i
             else:
                 print "recover to store1 after %s tries, %s sec" % (i, time.time() - ts_recover_start)
                 recovered = True
