@@ -57,7 +57,7 @@ func (host *Host) createConn() (net.Conn, error) {
     }
     conn, err := net.DialTimeout("tcp", addr, ConnectTimeout)
     if err != nil {
-        host.nextDial = now.Add(time.Second * 10)
+        host.nextDial = now.Add(time.Second * 5)
         return nil, err
     }
     return conn, nil
