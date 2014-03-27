@@ -7,8 +7,9 @@ import time
 from base import TestBeanseyeBase, BeansdbInstance, random_string, stop_svc
 import unittest
 from douban.beansdb import BeansDBProxy, MCStore
+import subprocess
 
-class Test3(TestBeanseyeBase):
+class Test4(TestBeanseyeBase):
 
     proxy_addr = 'localhost:7905'
     backend1_addr = 'localhost:57901'
@@ -17,8 +18,8 @@ class Test3(TestBeanseyeBase):
     backend4_addr = 'localhost:57904'
 
     data_base_path = os.path.join("/tmp", "beanseye_test")
-    accesslog = os.path.join(data_base_path, 'beansproxy_test3.log')
-    errorlog = os.path.join(data_base_path, 'beansproxy_error_test3.log')
+    accesslog = os.path.join(data_base_path, 'beansproxy_test4.log')
+    errorlog = os.path.join(data_base_path, 'beansproxy_error_test4.log')
 
     def setUp(self):
         self._init_dir()
@@ -56,59 +57,41 @@ class Test3(TestBeanseyeBase):
             }
         self.proxy_p = self._start_proxy(proxy_conf)
 
+    def _iptable_block(self, addr):
+        ip, port = addr.split(":")
+        cmd = "sudo iptables  -I INPUT 1 -i lo -p tcp --dport %s -j DROP" % (port)
+        print cmd
+        os.system(cmd)
 
-    def test3(self):
-        """ test wether will fallback only down 1 primary node """
+    def _iptable_unblock(self, addr):
+        ip, port = addr.split(":")
+        cmd = "sudo iptables -i lo -D INPUT -p tcp --dport %s -j DROP" % (port)
+        print cmd
+        os.system(cmd)
+
+    def test_iptable_silence(self):
+        """ test wether a node slow will affect response time """
         proxy = BeansDBProxy([self.proxy_addr])
-        self.backend1.stop()
-        self.backend2.stop()
         key3 = 'key3'
         i = 0
-        store4 = MCStore(self.backend4_addr)
-        ts_start = time.time()
-        fallbacked = False
-        while i < 2000:
+        start_time = time.time()
+        for i in range(20000):
             data3 = random_string(10)
-            i += 1
             proxy.set(key3, data3)
             self.assertEqual(proxy.get(key3), data3)
-            time.sleep(0.1)
-            data3_ = store4.get(key3)
-            if data3_ is None:
-                print "store4 get nothing yet, round=", i
-            else:
-                print "fallbacked to store4 after %s tries" % (i)
-                fallbacked = True
-                self.assertEqual(data3_, data3)
-                break
-        ts_stop = time.time()
-        if not fallbacked:
-            self.fail("still not fallback to backend 4")
-        print "%s seconds passed" % (ts_stop - ts_start)
-        self.backend1.start()
-        self.assert_(proxy.exists("key3"))
-        store1 = MCStore(self.backend1_addr)
-        self.assert_(store1.get("key3") is None)
-        data3 = random_string(10)
-        ts_recover_start = time.time()
+            self.assertEqual(proxy.get(key3), data3)
+        print "avg get&set time", (time.time() - start_time) / 2000
+        
         i = 0
-        recovered = False
-        while i < 2000:
-            #data3 = random_string(10)
-            i += 1
-            time.sleep(0.1)
+        self._iptable_block(self.backend1_addr)
+        start_time = time.time()
+        for i in range(20000):
+            data3 = random_string(10)
             proxy.set(key3, data3)
             self.assertEqual(proxy.get(key3), data3)
-            data3_ = store1.get(key3)
-            if data3_ is None:
-                print "store1 get nothing yet, round=", i
-            else:
-                print "recover to store1 after %s tries, %s sec" % (i, time.time() - ts_recover_start)
-                recovered = True
-                self.assertEqual(data3_, data3)
-                break
-        if not recovered:
-            self.fail("still not fallback to backend 1")
+            self.assertEqual(proxy.get(key3), data3)
+        print "avg get&set time", (time.time() - start_time) / 2000
+        self._iptable_unblock(self.backend1_addr)
         
 
 
@@ -125,6 +108,7 @@ class Test3(TestBeanseyeBase):
  
 if __name__ == '__main__':
     unittest.main()
+
 
 
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 :
