@@ -253,7 +253,7 @@ func (c *ManualScheduler) try_reward() {
             }
             c.feedChan <- &Feedback {hostIndex: second_node, bucketIndex: i, adjust: second_reward}
         } else {
-            ErrorLog.Printf("beansdb server : %s in Bucket %X's second node Down while try_reward", c.hosts[second_node].Addr, i)
+            ErrorLog.Printf("beansdb server : %s in Bucket %X's second node Down while try_reward, the err = %s", c.hosts[second_node].Addr, i, err)
         }
 
         third_node := bucket[2]
@@ -267,7 +267,7 @@ func (c *ManualScheduler) try_reward() {
             }
             c.feedChan <- &Feedback {hostIndex: third_node, bucketIndex: i, adjust: third_reward}
         } else {
-            ErrorLog.Printf("beansdb server : %s in Bucket %X's third node Down while try_reward", c.hosts[third_node].Addr, i)
+            ErrorLog.Printf("beansdb server : %s in Bucket %X's third node Down while try_reward, the err = %s", c.hosts[third_node].Addr, i, err)
         }
     }
 }
