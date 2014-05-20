@@ -14,7 +14,6 @@ import (
 type RClient struct {
     scheduler Scheduler
     N, W, R   int
-    success   chan bool
 }
 
 func NewRClient(sch Scheduler, N, W, R int) (c *RClient) {
@@ -23,7 +22,6 @@ func NewRClient(sch Scheduler, N, W, R int) (c *RClient) {
     c.N = N
     c.W = W
     c.R = R
-    c.success = make(chan bool, 1)
     return c
 }
 
@@ -46,15 +44,13 @@ func (c *RClient) Get(key string) (r *Item, targets []string, err error) {
             }
         } else if err.Error() != "wait for retry" {
             c.scheduler.Feedback(host, key, -5)
+        } else {
+            c.scheduler.Feedback(host, key, -2)
         }
-        if cnt >= c.R && i+1 >= c.N {
+
+        if cnt >= c.R {
             // because hosts are sorted
             err = nil
-            for _, success_host := range hosts[:3] {
-                targets = append(targets, success_host.Addr)
-            }
-            // because no item gotten
-            break
         }
     }
     // here is a failure exit
@@ -74,21 +70,19 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
             targets = append(targets, host.Addr)
         } else if er.Error() != "wait for retry" { // failed
             c.scheduler.Feedback(host, keys[0], -5)
+        } else {
+            c.scheduler.Feedback(host, keys[0], -2)
         }
         err = er
+        if er != nil {
+            continue
+        }
 
-        t := float64(time.Now().Sub(st)) / 1e9
-        c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
         for k, v := range r {
             rs[k] = v
         }
 
         if len(rs) == need {
-            break
-        }
-        if i+1 >= c.N && suc >= c.R {
-            err = nil
-            targets = []string{}
             break
         }
 

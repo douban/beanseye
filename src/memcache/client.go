@@ -15,7 +15,6 @@ import (
 type Client struct {
     scheduler Scheduler
     N, W, R   int
-    success   chan bool
 }
 
 func NewClient(sch Scheduler, N, W, R int) (c *Client) {
@@ -93,6 +92,7 @@ func (c *Client) getMulti(keys []string) (rs map[string]*Item, targets []string,
         if len(rs) == need {
             break
         }
+
         new_keys := []string{}
         for _, k := range keys {
             if _, ok := rs[k]; !ok {
