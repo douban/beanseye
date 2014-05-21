@@ -28,7 +28,7 @@ func NewRClient(sch Scheduler, N, W, R int) (c *RClient) {
 func (c *RClient) Get(key string) (r *Item, targets []string, err error) {
     hosts := c.scheduler.GetHostsByKey(key)
     cnt := 0
-    for i, host := range hosts {
+    for _, host := range hosts {
         st := time.Now()
         r, err = host.Get(key)
         if err == nil {
@@ -62,12 +62,16 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
     rs = make(map[string]*Item, need)
     hosts := c.scheduler.GetHostsByKey(keys[0])
     suc := 0
-    for i, host := range hosts {
+    for _, host := range hosts {
         st := time.Now()
         r, er := host.GetMulti(keys)
         if er == nil {
             suc += 1
-            targets = append(targets, host.Addr)
+            if r != nil {
+                targets = append(targets, host.Addr)
+                t := float64(time.Now().Sub(st)) / 1e9
+                c.scheduler.Feedback(host, keys[0], 1 - float64(math.Sqrt(t)*t))
+            }
         } else if er.Error() != "wait for retry" { // failed
             c.scheduler.Feedback(host, keys[0], -5)
         } else {
@@ -97,7 +101,7 @@ func (c *RClient) getMulti(keys []string) (rs map[string]*Item, targets []string
             break // repeated keys
         }
     }
-    if len(rs) > 0 {
+    if suc > c.R {
         err = nil
     }
     return
