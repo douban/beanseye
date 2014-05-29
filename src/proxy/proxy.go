@@ -5,8 +5,9 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
-	"github.com/robfig/config"
+	"github.com/hurricane1026/goyaml"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	. "memcache"
@@ -15,16 +16,19 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
 )
 
-var conf *string = flag.String("conf", "conf/example.ini", "config path")
-var debug *bool = flag.Bool("debug", false, "debug info")
+var conf *string = flag.String("conf", "conf/example.yaml", "config path")
+
+//var debug *bool = flag.Bool("debug", false, "debug info")
 var allocLimit *int = flag.Int("alloc", 1024*4, "cmem alloc limit")
+var basepath = flag.String("basepath", "", "base path")
+
+var eyeconfig Eye
 
 type gzipResponseWriter struct {
 	io.Writer
@@ -329,7 +333,7 @@ func update_stats(servers []string, hosts []*Host, server_stats []map[string]int
 	}
 }
 
-func init() {
+func Init(basepath string) {
 	funcs := make(template.FuncMap)
 	funcs["in"] = in
 	funcs["sum"] = sum
@@ -337,10 +341,16 @@ func init() {
 	funcs["num"] = number
 	funcs["time"] = timer
 
+	if !bytes.HasSuffix([]byte(basepath), []byte("/")) {
+		basepath = basepath + "/"
+	}
+
 	tmpls = new(template.Template)
 	tmpls = tmpls.Funcs(funcs)
-	tmpls = template.Must(tmpls.ParseFiles("static/index.html", "static/header.html",
-		"static/info.html", "static/matrix.html", "static/server.html", "static/stats.html"))
+	tmpls = template.Must(tmpls.ParseFiles(basepath+"static/index.html",
+		basepath+"static/header.html", basepath+"static/info.html",
+		basepath+"static/matrix.html", basepath+"static/server.html",
+		basepath+"static/stats.html"))
 }
 
 func Status(w http.ResponseWriter, req *http.Request) {
@@ -396,64 +406,67 @@ func min(a, b int) int {
 
 func main() {
 	flag.Parse()
-	c, err := config.ReadDefault(*conf)
+	//c, err := config.ReadDefault(*conf)
+	content, err := ioutil.ReadFile(*conf)
 	if err != nil {
 		log.Fatal("read config failed", *conf, err.Error())
 	}
-	if threads, e := c.Int("default", "threads"); e == nil {
-		runtime.GOMAXPROCS(threads)
+
+	if err := goyaml.Unmarshal(content, &eyeconfig); err != nil {
+		log.Fatal("unmarshal yaml format config failed")
+	}
+	if *basepath == "" {
+		if eyeconfig.Basepath == "" {
+			curr_path, err1 := os.Getwd()
+			if err1 != nil {
+				log.Fatal("Cannot get pwd")
+				return
+			}
+			*basepath = curr_path
+		} else {
+			*basepath = eyeconfig.Basepath
+		}
+	}
+	Init(*basepath)
+
+	if eyeconfig.Threads > 0 {
+		runtime.GOMAXPROCS(eyeconfig.Threads)
 	}
 
-	default_server_port, e := c.String("default", "server_port")
-	if e != nil {
-		default_server_port = "7900"
-	}
-	serverss, e := c.String("default", "servers")
-	if e != nil {
+	if len(eyeconfig.Servers) == 0 {
 		log.Fatal("no servers in conf")
 	}
-	servers := strings.Split(serverss, ",")
-	for i := 0; i < len(servers); i++ {
-		s := servers[i]
-		if p := strings.Index(s, "-"); p > 0 {
-			start, _ := strconv.Atoi(s[p-1 : p])
-			end, _ := strconv.Atoi(s[p+1:])
-			for j := start + 1; j <= end; j++ {
-				servers = append(servers, fmt.Sprintf("%s%d", s[:p-1], j))
-			}
-			s = s[:p]
-			servers[i] = s
-		}
-		if !strings.Contains(s, ":") {
-			servers[i] = s + ":" + default_server_port
-		}
+	server_configs := make(map[string][]string, len(eyeconfig.Servers))
+	for _, server := range eyeconfig.Servers {
+		fields := strings.Split(server, " ")
+		server_configs[fields[0]] = fields[1:]
 	}
-	//log.Println(servers)
-	sort.Strings(servers)
+	servers := make([]string, 0, len(server_configs))
+	for server, _ := range server_configs {
+		servers = append(servers, server)
+	}
 
-	if port, e := c.Int("monitor", "port"); e != nil {
-		log.Print("no port in conf", e.Error())
+	if eyeconfig.WebPort <= 0 {
+		log.Print("error webport in conf: ", eyeconfig.WebPort)
+	} else if eyeconfig.Buckets <= 0 {
+		log.Print("error buckets in conf: ", eyeconfig.Buckets)
 	} else {
 		server_stats = make([]map[string]interface{}, len(servers))
-		bucket_stats = make([]string, 16)
+		bucket_stats = make([]string, eyeconfig.Buckets)
 		go update_stats(servers, nil, server_stats, true)
 
-		proxys, e := c.String("monitor", "proxy")
-		if e != nil {
-			proxys = fmt.Sprintf("localhost:%d", port)
+		if len(eyeconfig.Proxies) > 0 {
+			proxy_stats = make([]map[string]interface{}, len(eyeconfig.Proxies))
+			go update_stats(eyeconfig.Proxies, nil, proxy_stats, false)
 		}
-		proxies := strings.Split(proxys, ",")
-		proxy_stats = make([]map[string]interface{}, len(proxies))
-		go update_stats(proxies, nil, proxy_stats, false)
 
 		http.Handle("/", http.HandlerFunc(makeGzipHandler(Status)))
-		http.Handle("/static/", http.FileServer(http.Dir("./")))
+		http.Handle("/static/", http.FileServer(http.Dir(*basepath)))
 		go func() {
-			listen, e := c.String("monitor", "listen")
-			if e != nil {
-				listen = "0.0.0.0"
+			if len(eyeconfig.Listen) == 0 {
+				eyeconfig.Listen = "0.0.0.0"
 			}
-			addr := fmt.Sprintf("%s:%d", listen, port)
+			addr := fmt.Sprintf("%s:%d", eyeconfig.Listen, eyeconfig.WebPort)
 			lt, e := net.Listen("tcp", addr)
 			if e != nil {
 				log.Println("monitor listen failed on ", addr, e)
@@ -465,52 +478,65 @@ func main() {
 
 	AllocLimit = *allocLimit
 
-	if *debug {
-		AccessLog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	} else if accesslog, e := c.String("proxy", "accesslog"); e == nil {
-		logf, err := os.OpenFile(accesslog, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			log.Print("open " + accesslog + " failed：" + err.Error())
-		} else {
-			AccessLog = log.New(logf, "", log.Ldate|log.Ltime)
-		}
+    var success bool
+
+	if len(eyeconfig.AccessLog) > 0 {
+        AccessLogPath = eyeconfig.AccessLog
+        if success, err = OpenAccessLog(eyeconfig.AccessLog); !success {
+            log.Fatalf("open AccessLog file in path: %s with error : %s", eyeconfig.AccessLog, err.Error())
+        }
 	}
-	slow, err := c.Int("proxy", "slow")
-	if err != nil {
+
+	if len(eyeconfig.ErrorLog) > 0 {
+        ErrorLogPath = eyeconfig.ErrorLog
+        if success, err = OpenErrorLog(eyeconfig.ErrorLog); !success {
+            log.Fatalf("open ErrorLog file in path: %s with error : %s", eyeconfig.ErrorLog, err.Error())
+        }
+	}
+
+	slow := eyeconfig.Slow
+	if slow == 0 {
 		slow = 100
 	}
 	SlowCmdTime = time.Duration(int64(slow) * 1e6)
 
-	schd = NewAutoScheduler(servers, 16)
-	client := NewClient(schd)
+	readonly := eyeconfig.Readonly
+
 	n := len(servers)
-	N, e := c.Int("proxy", "N")
-	if e == nil {
-		client.N = min(N, n)
-	} else {
-		client.N = min(n, 3)
+	if eyeconfig.N == 0 {
+		eyeconfig.N = 3
 	}
-	W, e := c.Int("proxy", "W")
-	if e == nil {
-		client.W = min(W, n-1)
+	N := min(eyeconfig.N, n)
+
+	if eyeconfig.W == 0 {
+		eyeconfig.W = 2
+	}
+	W := min(eyeconfig.W, n-1)
+
+	if eyeconfig.R == 0 {
+		eyeconfig.R = 1
+	}
+	R := eyeconfig.R
+
+	//schd = NewAutoScheduler(servers, 16)
+	schd = NewManualScheduler(server_configs, eyeconfig.Buckets, N)
+
+	var client DistributeStorage
+	if readonly {
+		client = NewRClient(schd, N, W, R)
 	} else {
-		client.W = min(n-1, 2)
+		client = NewClient(schd, N, W, R)
 	}
 
 	http.HandleFunc("/data", func(w http.ResponseWriter, req *http.Request) {
 	})
 
 	proxy := NewServer(client)
-	listen, e := c.String("proxy", "listen")
-	if e != nil {
-		listen = "0.0.0.0"
+	if eyeconfig.Port <= 0 {
+		log.Fatal("error proxy port in config it is ", eyeconfig.Port)
 	}
-	port, e := c.Int("proxy", "port")
-	if e != nil {
-		log.Fatal("no proxy port in conf", e.Error())
-	}
-	addr := fmt.Sprintf("%s:%d", listen, port)
-	if e = proxy.Listen(addr); e != nil {
+	addr := fmt.Sprintf("%s:%d", eyeconfig.Listen, eyeconfig.Port)
+	if e := proxy.Listen(addr); e != nil {
 		log.Fatal("proxy listen failed", e.Error())
 	}
 

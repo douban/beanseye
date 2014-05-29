@@ -1,0 +1,10 @@
+.*.swp
+/bin/
+/pkg/
+*.test
+*.a
+*.out
+*.log
+/src/github.com/
+tags
+*.pyc

@@ -79,8 +79,8 @@ var reqTests = []reqTest{
 		"STORED\r\n",
 	},
 	// reqTest{
-	// 	"prepend cdf 0 0 2\r\n1 \r\n",
-	// 	"STORED",
+	//     "prepend cdf 0 0 2\r\n1 \r\n",
+	//     "STORED",
 	// },
 	reqTest{
 		"get cdf\r\n",
