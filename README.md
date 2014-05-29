@@ -15,7 +15,7 @@ $ make
 
 prepare your configuration, according to conf/example.ini
 ``` bash
-$ ./bin/proxy -conf conf/example.ini
+$ ./bin/proxy -conf conf/example.yaml -basepath the_path_has_static
 ```
 
 # Proxy
