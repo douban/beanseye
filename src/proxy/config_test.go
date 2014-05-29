@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/hurricane1026/goyaml"
+	"github.com/douban/goyaml"
 	"io/ioutil"
 	"testing"
     "os"

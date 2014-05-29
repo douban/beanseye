@@ -3,7 +3,6 @@ package memcache
 import (
     "bytes"
     "fmt"
-    //"github.com/hurricane1026/go-bit/bit"
     "math"
     "sort"
     "strconv"
