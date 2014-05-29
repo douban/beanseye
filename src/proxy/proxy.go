@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
-	"github.com/hurricane1026/goyaml"
+	"github.com/douban/goyaml"
 	"io"
 	"io/ioutil"
 	"log"

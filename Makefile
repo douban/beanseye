@@ -4,9 +4,8 @@ GOPATH:=$(CURDIR)
 export GOPATH
 
 dep:
-	go get github.com/hurricane1026/goyaml
-	go install github.com/hurricane1026/goyaml
-	go get github.com/hurricane1026/go-bit/bit
+	go get github.com/douban/goyaml
+	go install github.com/douban/goyaml
 
 install:dep
 	go install proxy
