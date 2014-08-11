@@ -20,6 +20,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"sort"
 )
 
 var conf *string = flag.String("conf", "conf/example.yaml", "config path")
@@ -445,6 +446,7 @@ func main() {
 	for server, _ := range server_configs {
 		servers = append(servers, server)
 	}
+	sort.Sort(sort.StringSlice(servers))
 
 	if eyeconfig.WebPort <= 0 {
 		log.Print("error webport in conf: ", eyeconfig.WebPort)
