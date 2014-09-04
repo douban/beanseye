@@ -128,16 +128,22 @@ func (host *Host) execute(req *Request) (resp *Response, err error) {
 
 func (host *Host) executeWithTimeout(req *Request, timeout time.Duration) (resp *Response, err error) {
     done := make(chan bool, 1)
+    now := time.Now()
+    isTimeout := false
     go func() {
         resp, err = host.execute(req)
         done <- true
+        if (isTimeout && err == nil) {
+            ErrorLog.Printf("request %v to host %s return after timeout, use %d ms", req, host.Addr, time.Since(now)/1e6)
+        }
     }()
 
     select {
     case <-done:
     case <-time.After(timeout):
+        isTimeout = true
         err = fmt.Errorf("request %v timeout", req)
-        ErrorLog.Print(host.Addr, " request to host timeout")
+        ErrorLog.Printf("request %v to host %s timeout", req, host.Addr)
     }
     return
 }
