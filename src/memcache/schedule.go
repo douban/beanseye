@@ -255,18 +255,20 @@ func (c *ManualScheduler) try_reward() {
             ErrorLog.Printf("beansdb server : %s in Bucket %X's second node Down while try_reward, the err = %s", c.hosts[second_node].Addr, i, err)
         }
 
-        third_node := bucket[2]
-        if _, err := c.hosts[third_node].Get("@"); err == nil {
-            var third_reward float64 = 0.0
-            third_stat := c.stats[i][second_node]
-            if third_stat < 0 {
-                third_reward = 0 - third_stat
+        if c.N > 2 {
+            third_node := bucket[2]
+            if _, err := c.hosts[third_node].Get("@"); err == nil {
+                var third_reward float64 = 0.0
+                third_stat := c.stats[i][third_node]
+                if third_stat < 0 {
+                    third_reward = 0 - third_stat
+                } else {
+                    third_reward = float64(rand.Intn(16))
+                }
+                c.feedChan <- &Feedback {hostIndex: third_node, bucketIndex: i, adjust: third_reward}
             } else {
-                third_reward = float64(rand.Intn(16))
+                ErrorLog.Printf("beansdb server : %s in Bucket %X's third node Down while try_reward, the err = %s", c.hosts[third_node].Addr, i, err)
             }
-            c.feedChan <- &Feedback {hostIndex: third_node, bucketIndex: i, adjust: third_reward}
-        } else {
-            ErrorLog.Printf("beansdb server : %s in Bucket %X's third node Down while try_reward, the err = %s", c.hosts[third_node].Addr, i, err)
         }
     }
 }
