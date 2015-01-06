@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"flag"
 	"fmt"
-	"github.com/douban/goyaml"
+	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"log"
@@ -413,7 +413,7 @@ func main() {
 		log.Fatal("read config failed", *conf, err.Error())
 	}
 
-	if err := goyaml.Unmarshal(content, &eyeconfig); err != nil {
+	if err := yaml.Unmarshal(content, &eyeconfig); err != nil {
 		log.Fatal("unmarshal yaml format config failed")
 	}
 	if *basepath == "" {
