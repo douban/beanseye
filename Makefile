@@ -4,8 +4,8 @@ GOPATH:=$(CURDIR)
 export GOPATH
 
 dep:
-	go get github.com/douban/goyaml
-	go install github.com/douban/goyaml
+	go get gopkg.in/yaml.v2
+	go install gopkg.in/yaml.v2
 
 install:dep
 	go install proxy
